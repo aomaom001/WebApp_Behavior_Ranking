@@ -1,6 +1,12 @@
 # Dependencies
 node_modules/
 
+# Python (data pipeline)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
 # Source data exports (large Excel files live outside the repo)
 *.xlsx
 *.xls
