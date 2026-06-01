@@ -13,7 +13,11 @@ Usage:
 Requires: pandas-free, only openpyxl (pip install openpyxl).
 
 Input  : files named "..._YYYYMM.xlsx", sheet "RAW Data", one row per WO.
-Output : { "months": [...], "records": [ {team,name,region,prov,skill,m, wo,tickets,dup,nowork,cancel,cross,sys,man}, ... ] }
+Output : { "months": [...],
+           "records": [ {team,name,region,prov,skill,m, wo,tickets,dup,nowork,cancel,cross,sys,man}, ... ],
+           "behaviors": { metric -> label },
+           "meta": { generated_at, src, source_system, total_files, total_records, total_wo,
+                     sources: [ {file,month,teams,wo,tickets,size_kb,modified}, ... ] } }   # data provenance
 
 Behaviour metrics (lower = better; see README):
   dup    = wo - tickets            (extra WOs opened against the same ticket)
@@ -31,6 +35,7 @@ If you recover that rule, edit `ticket_main_province()` only; everything else is
 """
 
 import argparse
+import datetime
 import glob
 import json
 import os
@@ -44,6 +49,14 @@ except ImportError:
     sys.exit("openpyxl is required:  pip install openpyxl")
 
 SHEET = "RAW Data"
+
+# Human-readable behaviour labels embedded in the output for the dashboard.
+BEHAVIORS = {
+    "dup": "WO ซ้ำ Ticket เดิม (Duplicate WO/Ticket)",
+    "nowork": "เปิด WO ไม่ทำงานจริง (No real work)",
+    "cross": "ช่วยข้าม Province (Cross-province)",
+    "sys": "System WO ผิดปกติ (System ratio)",
+}
 NEEDED = [
     "Team", "Source Ticket ID", "Province", "Region", "Skill",
     "Status", "WO Creator", "Complete Solution",
@@ -168,15 +181,41 @@ def build(src_dir):
         sys.exit(f"no '*YYYYMM*.xlsx' files found in {src_dir}")
     all_records = []
     months = []
+    sources = []
+    total_wo = 0
     for f in files:
         month = month_from_filename(f)
         print(f"  reading {os.path.basename(f)}  ->  {month}", flush=True)
         recs = process_file(f, month)
+        teams = len(recs)
+        wo = sum(r["wo"] for r in recs)
+        tickets = sum(r["tickets"] for r in recs)
+        st = os.stat(f)
+        sources.append({
+            "file": os.path.basename(f),
+            "month": month,
+            "teams": teams,
+            "wo": wo,
+            "tickets": tickets,
+            "size_kb": round(st.st_size / 1024),
+            "modified": datetime.datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d"),
+        })
+        total_wo += wo
         all_records.extend(recs)
         months.append(month)
-        print(f"    {len(recs)} teams", flush=True)
+        print(f"    {teams} teams, {wo} WO", flush=True)
     months = sorted(set(months))
-    return {"months": months, "records": all_records}
+    # Provenance — lets the dashboard answer "which files, how many, from where".
+    meta = {
+        "generated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "src": os.path.abspath(src_dir),
+        "source_system": "ระบบ MATELINE — รายงาน Ticket Closed (.xlsx) รายเดือน",
+        "total_files": len(files),
+        "total_records": len(all_records),
+        "total_wo": total_wo,
+        "sources": sources,
+    }
+    return {"months": months, "records": all_records, "behaviors": BEHAVIORS, "meta": meta}
 
 
 def validate(generated, ref_path):
