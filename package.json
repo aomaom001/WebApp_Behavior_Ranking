@@ -1,0 +1,14 @@
+{
+  "name": "webapp-behavior-ranking",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Team Behavior Ranking Dashboard — static dashboard summarizing MATELINE ticket behavior across 11 months",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}

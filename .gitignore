@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Source data exports (large Excel files live outside the repo)
+*.xlsx
+*.xls
+*.csv
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+
+# Build output (none today — reserved if a build step is added later)
+dist/
