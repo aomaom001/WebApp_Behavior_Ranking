@@ -15,7 +15,7 @@
   --border-strong:#d2d9e4;
   --text:         #0f1729;
   --text-muted:   #5b6677;
-  --text-faint:   #97a1b2;
+  --text-faint:   #636d80;
   --accent:       #2f6bff;
   --accent-hover: #2057e6;
   --accent-contrast:#ffffff;
@@ -52,7 +52,7 @@
   --border-strong:#324264;
   --text:         #e9eef8;
   --text-muted:   #97a6c2;
-  --text-faint:   #64748b;
+  --text-faint:   #8b99b4;
   --accent:       #4b93ff;
   --accent-hover: #67a4ff;
   --accent-contrast:#04101f;
@@ -106,6 +106,12 @@ body {
 header {
   display: flex; align-items: center; justify-content: space-between;
   flex-wrap: wrap; gap: 14px; margin-bottom: 22px;
+}
+.brand { display: flex; align-items: center; gap: 13px; }
+.brand-mark {
+  display: grid; place-items: center; width: 44px; height: 44px; flex: none;
+  border-radius: 13px; background: var(--accent); color: var(--accent-contrast);
+  box-shadow: var(--shadow-md);
 }
 h1 { font-size: 22px; font-weight: 800; letter-spacing: -.3px; line-height: 1.2; }
 h1 .sub { display: block; font-size: 12.5px; color: var(--text-muted); font-weight: 400; margin-top: 4px; letter-spacing: 0; }
@@ -202,10 +208,11 @@ select:focus, input:focus {
   border-radius: var(--r-md); padding: 14px 16px; cursor: pointer;
   transition: .18s; position: relative; overflow: hidden;
   box-shadow: var(--shadow-sm);
+  font-family: inherit; color: inherit; text-align: left; width: 100%; display: block;
 }
 .tab:hover { border-color: var(--border-strong); transform: translateY(-2px); box-shadow: var(--shadow-md); }
-.tab .t { font-size: 13.5px; font-weight: 700; }
-.tab .d { font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
+.tab .t { display: block; font-size: 13.5px; font-weight: 700; color: var(--text); }
+.tab .d { display: block; font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
 .tab.on {
   border-color: var(--accent);
   background: linear-gradient(180deg, var(--accent-soft), var(--surface));
@@ -225,8 +232,22 @@ select:focus, input:focus {
 }
 .card:hover { box-shadow: var(--shadow-md); }
 .card .k { font-size: 10.5px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .6px; font-weight: 600; }
+.card .k.sub { text-transform: none; letter-spacing: 0; margin-top: 6px; font-weight: 500; }
 .card .v { font-size: 28px; font-weight: 800; margin-top: 6px; letter-spacing: -.5px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .card .v small { font-size: 13px; font-weight: 600; }
+
+/* Primary overview card carries the headline metric */
+.card--primary { background: var(--accent-soft); border-color: var(--accent); }
+.card--primary .v { font-size: 34px; }
+.card--primary .k:first-child { color: var(--accent); }
+
+/* Stat cards: icon chip + count, color-coded so they don't read as one repeated card */
+.card--stat { display: flex; align-items: center; gap: 14px; }
+.card--stat .v { font-size: 26px; margin-top: 0; }
+.card-ico { display: grid; place-items: center; width: 42px; height: 42px; flex: none; border-radius: 11px; font-size: 15px; font-weight: 800; }
+.card--stat.down .card-ico { background: var(--good-soft); color: var(--good); }
+.card--stat.up   .card-ico { background: var(--bad-soft);  color: var(--bad); }
+.card--stat.flat .card-ico { background: var(--surface-2); color: var(--text-faint); }
 
 /* ============================================================ Panels / grid */
 .grid2 { display: grid; grid-template-columns: 1.6fr 1fr; gap: 18px; align-items: start; }
@@ -262,7 +283,11 @@ tbody tr:last-child td { border-bottom: none; }
   min-width: 26px; height: 26px; padding: 0 7px; border-radius: var(--r-sm);
   font-weight: 800; font-size: 12px; background: var(--surface-2); color: var(--text-muted);
 }
-.rk.top { background: var(--bad-soft); color: var(--bad); }
+/* Top-3 = the worst offenders: graduated severity so they jump out */
+.rk.top { min-width: 30px; height: 30px; font-size: 13.5px; }
+.rk.rk-1 { background: var(--bad);  color: #0b0b0b; }
+.rk.rk-2 { background: var(--warn); color: #0b0b0b; }
+.rk.rk-3 { background: var(--warn-soft); color: var(--warn); }
 
 .bar { height: 6px; border-radius: 3px; background: var(--surface-2); position: relative; margin-top: 5px; overflow: hidden; }
 .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, var(--accent), var(--accent-hover)); border-radius: 3px; }
@@ -330,3 +355,44 @@ tbody tr:last-child td { border-bottom: none; }
   padding: 16px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md);
 }
 .foot b { color: var(--text); font-weight: 600; }
+
+/* ============================================================ Accessibility */
+/* Visible keyboard focus on every interactive element (mouse clicks stay clean) */
+.btn:focus-visible, .seg button:focus-visible, .theme-toggle:focus-visible,
+.tab:focus-visible, .detail .x:focus-visible,
+select:focus-visible, input:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Larger hit areas on touch devices, without bloating the desktop layout */
+@media (pointer: coarse) {
+  .seg button, .btn, .theme-toggle,
+  select, input[type=number], input[type=search] { min-height: 44px; }
+  .field-inline input { min-height: 40px; }
+}
+
+/* Respect reduced-motion: keep state changes, drop the choreography */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+  .tab:hover { transform: none; }
+  .loading-spinner { animation: none; }
+}
+
+/* ============================================================ Loading state */
+.loading {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: var(--bg); color: var(--text-muted); font-size: 14px;
+}
+.loading-spinner {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 3px solid var(--border); border-top-color: var(--accent);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

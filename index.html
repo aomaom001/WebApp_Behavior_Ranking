@@ -16,11 +16,22 @@
 </script>
 </head>
 <body>
+<div class="loading" id="loading" role="status" aria-live="polite">
+  <div class="loading-spinner" aria-hidden="true"></div>
+  <span>กำลังโหลดข้อมูล…</span>
+</div>
 <div class="wrap">
   <header>
-    <h1>Team Behavior Ranking Dashboard
-      <span class="sub">เปรียบเทียบพฤติกรรมการทำงาน 4 ด้าน ระหว่าง 2 เดือน</span>
-    </h1>
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>
+        </svg>
+      </span>
+      <h1>Team Behavior Ranking
+        <span class="sub">เปรียบเทียบพฤติกรรมการทำงาน 4 ด้าน ระหว่าง 2 เดือน · MATELINE</span>
+      </h1>
+    </div>
     <div class="head-actions">
       <button class="theme-toggle" id="themeToggle" title="สลับธีม Light/Dark" aria-label="สลับธีม"></button>
     </div>
@@ -67,7 +78,7 @@
       <div class="cgroup-body">
         <label class="field-inline" title="ตัดหน่วยที่ WO ในเดือน B น้อยกว่าค่านี้">WO&nbsp;≥
           <input id="minWO" type="number" value="20" min="0" step="5"></label>
-        <input id="search" type="search" placeholder="🔍 ค้นหา ชื่อ / ภาค / จังหวัด…" autocomplete="off">
+        <input id="search" type="search" aria-label="ค้นหา ชื่อ ภาค หรือจังหวัด" placeholder="🔍 ค้นหา ชื่อ / ภาค / จังหวัด…" autocomplete="off">
       </div>
     </div>
 

@@ -21,6 +21,8 @@ fetch("./data/data.json")
   });
 
 function boot(DATA) {
+  const _loading = document.getElementById("loading");
+  if (_loading) _loading.remove();
 
   const BEH = [
     {k:'dup',   t:'WO ซ้ำ Ticket เดิม',   d:'WO ต่อ Ticket เกิน 1 → เปิดซ้ำ'},
@@ -32,6 +34,7 @@ function boot(DATA) {
   let lastRows = []; // rows currently shown in the ranking table (for CSV export)
 
   const $=id=>document.getElementById(id);
+  const debounce=(fn,ms)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};};
   const pct=v=>(v*100).toFixed(v<0.01?2:1)+'%';
   const monthLbl=m=>{const [y,mo]=m.split('-');return mo+'/'+y.slice(2);};
   const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
@@ -94,16 +97,22 @@ function boot(DATA) {
     const body=$('rankBody'); body.innerHTML='';
     view.forEach(x=>{
       const tr=document.createElement('tr');
-      if(S.sel===x.k) tr.className='sel';
+      const sev = x.rank<=3 ? ' sev sev-'+x.rank : '';
+      tr.className = (S.sel===x.k?'sel':'') + sev;
       const dCell = x.delta===null?'<span class="flat">—</span>':
         `<span class="delta ${rateColor(x.delta)}">${arrow(x.delta)} ${x.delta<0?'':'+'}${(x.delta*100).toFixed(1)} pt</span>`;
-      tr.innerHTML=`<td class="l rk ${x.rank<=3?'top':''}">${x.rank}</td>
+      tr.innerHTML=`<td class="l rk ${x.rank<=3?'top rk-'+x.rank:''}">${x.rank}</td>
         <td class="l"><div class="namecell"><span>${esc(x.meta.name)}</span><small>${esc(x.meta.sub)}</small></div></td>
         <td>${x.rA===null?'<span class="flat">—</span>':pct(x.rA)}</td>
         <td><b>${pct(x.rB)}</b><div class="bar"><i style="width:${Math.max(2,x.rB/maxR*100)}%"></i></div></td>
         <td>${dCell}</td>
         <td>${x.woB.toLocaleString()}</td>`;
-      tr.onclick=()=>{S.sel=(S.sel===x.k?null:x.k); render();};
+      tr.tabIndex=0; tr.setAttribute('role','button');
+      tr.setAttribute('aria-pressed', S.sel===x.k);
+      tr.setAttribute('aria-label', `${x.meta.name} — อันดับ ${x.rank}, ${pct(x.rB)}`);
+      const toggle=()=>{S.sel=(S.sel===x.k?null:x.k); render();};
+      tr.onclick=toggle;
+      tr.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault(); toggle();}};
       body.appendChild(tr);
     });
     if(!view.length) body.innerHTML=`<tr><td colspan="6" class="l" style="color:var(--text-muted);padding:20px">${q?'ไม่พบหน่วยที่ตรงกับคำค้น “'+esc(S.search)+'”':'ไม่มีข้อมูลตามเงื่อนไข (ลองลด WO ขั้นต่ำ หรือกดล้างตัวกรอง)'}</td></tr>`;
@@ -147,12 +156,23 @@ function boot(DATA) {
     rows.forEach(x=>{if(x.delta!==null){if(x.delta<-0.0005)imp++;else if(x.delta>0.0005)wor++;}});
     const b=BEH.find(x=>x.k===S.beh);
     $('cards').innerHTML=`
-      <div class="card"><div class="k">ภาพรวม ${monthLbl(DATA.months[S.mA])} → ${monthLbl(DATA.months[S.mB])}</div>
+      <div class="card card--primary">
+        <div class="k">ภาพรวม ${esc(b.t)}</div>
         <div class="v">${pct(rB)} <small class="delta ${rateColor(d)}">${arrow(d)} ${d<0?'':'+'}${(d*100).toFixed(1)} pt</small></div>
-        <div class="k" style="margin-top:4px">${esc(b.t)}</div></div>
-      <div class="card"><div class="k">เดือน A (${monthLbl(DATA.months[S.mA])})</div><div class="v">${pct(rA)}</div></div>
-      <div class="card"><div class="k">หน่วยที่ดีขึ้น ✓</div><div class="v down">${imp}</div><div class="k">จาก ${rows.length} หน่วย</div></div>
-      <div class="card"><div class="k">หน่วยที่แย่ลง ✗</div><div class="v up">${wor}</div><div class="k">จาก ${rows.length} หน่วย</div></div>`;
+        <div class="k sub">${monthLbl(DATA.months[S.mA])} → ${monthLbl(DATA.months[S.mB])} · เดือน A อยู่ที่ ${pct(rA)}</div>
+      </div>
+      <div class="card card--stat down">
+        <div class="card-ico" aria-hidden="true">▼</div>
+        <div><div class="v down">${imp}</div><div class="k">หน่วยที่ดีขึ้น · จาก ${rows.length}</div></div>
+      </div>
+      <div class="card card--stat up">
+        <div class="card-ico" aria-hidden="true">▲</div>
+        <div><div class="v up">${wor}</div><div class="k">หน่วยที่แย่ลง · จาก ${rows.length}</div></div>
+      </div>
+      <div class="card card--stat flat">
+        <div class="card-ico" aria-hidden="true">●</div>
+        <div><div class="v">${rows.length-imp-wor}</div><div class="k">ทรงตัว · จาก ${rows.length}</div></div>
+      </div>`;
   }
 
   function renderChart(){
@@ -192,8 +212,8 @@ function boot(DATA) {
   }
 
   function renderTabs(){
-    $('behTabs').innerHTML=BEH.map(b=>`<div class="tab ${b.k===S.beh?'on':''}" data-k="${b.k}">
-      <div class="t">${b.t}</div><div class="d">${b.d}</div></div>`).join('');
+    $('behTabs').innerHTML=BEH.map(b=>`<button type="button" class="tab ${b.k===S.beh?'on':''}" data-k="${b.k}" aria-pressed="${b.k===S.beh}">
+      <span class="t">${b.t}</span><span class="d">${b.d}</span></button>`).join('');
     $('behTabs').querySelectorAll('.tab').forEach(el=>el.onclick=()=>{S.beh=el.dataset.k;render();});
   }
 
@@ -236,11 +256,12 @@ function boot(DATA) {
   $('mA').onchange=e=>{S.mA=+e.target.value;render();};
   $('mB').onchange=e=>{S.mB=+e.target.value;render();};
   $('minWO').onchange=e=>{S.minWO=+e.target.value||0;render();};
-  $('search').oninput=e=>{S.search=e.target.value;render();};
+  const renderDebounced=debounce(render,150);
+  $('search').oninput=e=>{S.search=e.target.value;renderDebounced();};
   $('clearBtn').onclick=()=>{S.skill='ALL';S.level='region';S.region='';S.prov='';S.mA=0;S.mB=DATA.months.length-1;S.minWO=20;S.sel=null;S.search='';
     $('search').value='';setSeg('skillSeg','ALL');setSeg('levelSeg','region');render();};
   $('exportBtn').onclick=exportCSV;
-  window.addEventListener('resize',renderChart);
+  window.addEventListener('resize',debounce(renderChart,120));
 
   // Export the currently displayed ranking to CSV (UTF-8 BOM so Excel reads Thai).
   function csvCell(v){v=v==null?'':String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
