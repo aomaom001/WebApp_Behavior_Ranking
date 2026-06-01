@@ -135,16 +135,37 @@ select:focus, input:focus {
 }
 
 .controls {
-  display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end;
+  display: flex; flex-wrap: wrap; gap: 18px; align-items: stretch;
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--r-lg); padding: 16px 18px; margin-bottom: 18px;
+  border-radius: var(--r-lg); padding: 14px 18px; margin-bottom: 18px;
   box-shadow: var(--shadow-sm);
 }
-.ctl { display: flex; flex-direction: column; gap: 6px; }
-.ctl label {
-  font-size: 10.5px; color: var(--text-faint); font-weight: 600;
-  text-transform: uppercase; letter-spacing: .6px;
+/* Each filter group: a small heading over its controls, separated by a divider */
+.cgroup { display: flex; flex-direction: column; gap: 8px; padding-right: 18px; border-right: 1px solid var(--border); }
+.cgroup:last-child { border-right: none; padding-right: 0; }
+.cgroup-title { font-size: 10px; color: var(--text-faint); font-weight: 700; text-transform: uppercase; letter-spacing: .7px; }
+.cgroup-body { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1; }
+.cactions { margin-left: auto; }
+.cactions .cgroup-body { align-items: stretch; }
+@media (max-width: 760px) {
+  .cgroup { border-right: none; padding-right: 0; border-bottom: 1px solid var(--border); padding-bottom: 12px; width: 100%; }
+  .cgroup:last-child { border-bottom: none; padding-bottom: 0; }
+  .cactions { margin-left: 0; }
 }
+
+/* Drill-down dropdowns appear only when the level needs them (toggled in JS) */
+.drill { min-width: 130px; }
+/* Month A -> B comparison reads as a pair */
+.month-cmp .arrow { color: var(--accent); font-weight: 800; font-size: 15px; }
+.month-cmp select { min-width: 104px; }
+/* "WO >= n" as one compact inline field */
+.field-inline { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 0 4px 0 11px; white-space: nowrap; transition: border-color .15s, box-shadow .15s; }
+.field-inline:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.field-inline input { border: none; background: transparent; min-width: 56px; padding: 8px 6px; }
+.field-inline input:hover, .field-inline input:focus { border: none; box-shadow: none; }
+#search { min-width: 220px; }
+.btn-ghost { background: transparent; }
 
 /* Segmented control */
 .seg {

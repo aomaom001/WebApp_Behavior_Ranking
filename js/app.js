@@ -204,8 +204,9 @@ function boot(DATA) {
     $('fRegion').innerHTML='<option value="">ทุกภาค</option>'+rs.map(r=>`<option${r===S.region?' selected':''}>${r}</option>`).join('');
     const ps=[...new Set(DATA.records.filter(r=>(S.skill==='ALL'||r.skill===S.skill)&&(!S.region||r.region===S.region)).map(r=>r.prov))].sort();
     $('fProv').innerHTML='<option value="">ทุกจังหวัด</option>'+ps.map(p=>`<option${p===S.prov?' selected':''}>${p}</option>`).join('');
-    $('fRegion').disabled=(S.level==='region'); $('fProv').disabled=(S.level!=='team');
-    $('fRegion').style.opacity=$('fRegion').disabled?.5:1; $('fProv').style.opacity=$('fProv').disabled?.5:1;
+    // Drill-down filters appear only at the level that can use them (region->none, prov->ภาค, team->ภาค+จังหวัด)
+    $('fRegion').style.display=(S.level==='region')?'none':'';
+    $('fProv').style.display=(S.level==='team')?'':'none';
     $('minWO').value=S.minWO;
   }
 

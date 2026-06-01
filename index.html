@@ -22,11 +22,6 @@
       <span class="sub">เปรียบเทียบพฤติกรรมการทำงาน 4 ด้าน ระหว่าง 2 เดือน</span>
     </h1>
     <div class="head-actions">
-      <div class="seg" id="skillSeg">
-        <button data-v="ALL" class="on">ทุก Skill</button>
-        <button data-v="NODE">NODE</button>
-        <button data-v="OFC">OFC</button>
-      </div>
       <button class="theme-toggle" id="themeToggle" title="สลับธีม Light/Dark" aria-label="สลับธีม"></button>
     </div>
   </header>
@@ -34,21 +29,55 @@
   <div class="tabs" id="behTabs"></div>
 
   <div class="controls">
-    <div class="ctl"><label>ระดับ (Level)</label>
-      <div class="seg" id="levelSeg">
-        <button data-v="region" class="on">ภาค</button>
-        <button data-v="prov">จังหวัด</button>
-        <button data-v="team">ทีม</button>
+    <div class="cgroup">
+      <span class="cgroup-title">Skill</span>
+      <div class="cgroup-body">
+        <div class="seg" id="skillSeg">
+          <button data-v="ALL" class="on">ทุก Skill</button>
+          <button data-v="NODE">NODE</button>
+          <button data-v="OFC">OFC</button>
+        </div>
       </div>
     </div>
-    <div class="ctl"><label>ภาค (Region)</label><select id="fRegion"></select></div>
-    <div class="ctl"><label>จังหวัด (Province)</label><select id="fProv"></select></div>
-    <div class="ctl"><label>เดือนตั้งต้น (A)</label><select id="mA"></select></div>
-    <div class="ctl"><label>เดือนเทียบ (B)</label><select id="mB"></select></div>
-    <div class="ctl"><label>WO ขั้นต่ำ (เดือน B)</label><input id="minWO" type="number" value="20" min="0" step="5"></div>
-    <div class="ctl" style="flex:1;min-width:160px"><label>ค้นหา (Search)</label><input id="search" type="search" placeholder="ชื่อ / ภาค / จังหวัด…" autocomplete="off"></div>
-    <div class="ctl"><label>&nbsp;</label><button class="btn" id="exportBtn">⬇ Export CSV</button></div>
-    <div class="ctl"><label>&nbsp;</label><button class="btn" id="clearBtn">↺ ล้างตัวกรอง</button></div>
+
+    <div class="cgroup">
+      <span class="cgroup-title">จัดอันดับราย</span>
+      <div class="cgroup-body">
+        <div class="seg" id="levelSeg">
+          <button data-v="region" class="on">ภาค</button>
+          <button data-v="prov">จังหวัด</button>
+          <button data-v="team">ทีม</button>
+        </div>
+        <select id="fRegion" class="drill" aria-label="กรองภาค"></select>
+        <select id="fProv" class="drill" aria-label="กรองจังหวัด"></select>
+      </div>
+    </div>
+
+    <div class="cgroup">
+      <span class="cgroup-title">เปรียบเทียบเดือน</span>
+      <div class="cgroup-body month-cmp">
+        <select id="mA" aria-label="เดือนตั้งต้น"></select>
+        <span class="arrow" aria-hidden="true">→</span>
+        <select id="mB" aria-label="เดือนเทียบ"></select>
+      </div>
+    </div>
+
+    <div class="cgroup">
+      <span class="cgroup-title">กรองผล</span>
+      <div class="cgroup-body">
+        <label class="field-inline" title="ตัดหน่วยที่ WO ในเดือน B น้อยกว่าค่านี้">WO&nbsp;≥
+          <input id="minWO" type="number" value="20" min="0" step="5"></label>
+        <input id="search" type="search" placeholder="🔍 ค้นหา ชื่อ / ภาค / จังหวัด…" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="cgroup cactions">
+      <span class="cgroup-title">&nbsp;</span>
+      <div class="cgroup-body">
+        <button class="btn" id="exportBtn">⬇ Export CSV</button>
+        <button class="btn btn-ghost" id="clearBtn">↺ ล้าง</button>
+      </div>
+    </div>
   </div>
 
   <div class="cards" id="cards"></div>
