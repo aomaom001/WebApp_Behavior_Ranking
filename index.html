@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Team Behavior Ranking Dashboard</title>
 <link rel="stylesheet" href="css/styles.css">
+<script>
+  // Apply saved/system theme before paint to avoid a flash of the wrong theme.
+  (function () {
+    var saved = localStorage.getItem("theme");
+    var dark = saved ? saved === "dark"
+      : window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  })();
+</script>
 </head>
 <body>
 <div class="wrap">
@@ -12,10 +21,13 @@
     <h1>Team Behavior Ranking Dashboard
       <span class="sub">เปรียบเทียบพฤติกรรมการทำงาน 4 ด้าน ระหว่าง 2 เดือน</span>
     </h1>
-    <div class="seg" id="skillSeg">
-      <button data-v="ALL" class="on">ทุก Skill</button>
-      <button data-v="NODE">NODE</button>
-      <button data-v="OFC">OFC</button>
+    <div class="head-actions">
+      <div class="seg" id="skillSeg">
+        <button data-v="ALL" class="on">ทุก Skill</button>
+        <button data-v="NODE">NODE</button>
+        <button data-v="OFC">OFC</button>
+      </div>
+      <button class="theme-toggle" id="themeToggle" title="สลับธีม Light/Dark" aria-label="สลับธีม"></button>
     </div>
   </header>
 
@@ -34,6 +46,8 @@
     <div class="ctl"><label>เดือนตั้งต้น (A)</label><select id="mA"></select></div>
     <div class="ctl"><label>เดือนเทียบ (B)</label><select id="mB"></select></div>
     <div class="ctl"><label>WO ขั้นต่ำ (เดือน B)</label><input id="minWO" type="number" value="20" min="0" step="5"></div>
+    <div class="ctl" style="flex:1;min-width:160px"><label>ค้นหา (Search)</label><input id="search" type="search" placeholder="ชื่อ / ภาค / จังหวัด…" autocomplete="off"></div>
+    <div class="ctl"><label>&nbsp;</label><button class="btn" id="exportBtn">⬇ Export CSV</button></div>
     <div class="ctl"><label>&nbsp;</label><button class="btn" id="clearBtn">↺ ล้างตัวกรอง</button></div>
   </div>
 
