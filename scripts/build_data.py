@@ -73,6 +73,12 @@ BEHAVIORS = {
 
 NONE_LABEL = "ไม่ระบุ"
 
+# Optional columns used only for the drill-down detail files (skipped if absent).
+OPT_SITE = "Site ID"
+OPT_SUBJ = "Subject"
+# Dictionary-encoded fields in each data/detail/<month>.json (cuts file size ~5x).
+DETAIL_DICT_FIELDS = ["team", "name", "region", "prov", "skill", "tsev", "sev", "status", "wtype", "root", "sla", "site"]
+
 # Drill-down dimensions surfaced for deeper analysis. Classification, Target Onsite Status
 # and Suspend Status were all-empty in the source data, so they are intentionally excluded.
 DIM_META = {
@@ -166,12 +172,15 @@ def process_file(path, month):
 
     main_prov = ticket_main_province(rows, col)
     main_sev = ticket_main_sev(rows, col)
+    has_site, has_subj = OPT_SITE in col, OPT_SUBJ in col
 
     agg = defaultdict(lambda: {
         "tickets": set(), "wo": 0, "sys": 0, "cancel": 0, "nowork": 0, "cross": 0,
         "meta": Counter(),
         "status": Counter(), "wtype": Counter(), "root": Counter(), "sla": Counter(),
     })
+    detail = []        # per-WO rows for the drill-down detail file
+    name_cache = {}
     for r in rows:
         team = r[col["Team"]]
         if is_empty(team):
@@ -200,6 +209,21 @@ def process_file(path, month):
         a["wtype"][cat_label(wtype_raw)] += 1
         a["root"][cat_label(r[col["Root Cause"]])] += 1
         a["sla"][cat_label(r[col["SLA"]])] += 1
+
+        # per-WO row for the drill-down detail file
+        if team not in name_cache:
+            name_cache[team] = parse_name(team)
+        tid_s = "" if is_empty(tid) else str(tid)
+        detail.append({
+            "team": team, "name": name_cache[team],
+            "region": r[col["Region"]], "prov": prov, "skill": r[col["Skill"]],
+            "tsev": main_sev.get(tid_s, "OTHER") if tid_s else "OTHER",
+            "sev": sev_group(r[col["Severity"]]),
+            "status": cat_label(status), "wtype": cat_label(wtype_raw),
+            "root": cat_label(r[col["Root Cause"]]), "sla": cat_label(r[col["SLA"]]),
+            "site": cat_label(r[col[OPT_SITE]]) if has_site else NONE_LABEL,
+            "tid": tid_s,
+        })
 
     records = []
     for team, a in agg.items():
@@ -233,10 +257,32 @@ def process_file(path, month):
                 "sla": dict(a["sla"]),
             },
         })
-    return records
+    return records, detail
 
 
-def build(src_dir):
+def write_detail(path, month, detail_rows):
+    """Write one month's per-WO drill-down file, dictionary-encoded to keep it small."""
+    dmap = {f: {} for f in DETAIL_DICT_FIELDS}
+    darr = {f: [] for f in DETAIL_DICT_FIELDS}
+
+    def idx(f, v):
+        m = dmap[f]
+        if v not in m:
+            m[v] = len(darr[f])
+            darr[f].append(v)
+        return m[v]
+
+    out_rows = []
+    for r in detail_rows:
+        out_rows.append([idx(f, r[f]) for f in DETAIL_DICT_FIELDS] + [r["tid"]])
+    obj = {"month": month, "fields": DETAIL_DICT_FIELDS + ["tid"], "dict": darr, "rows": out_rows}
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
+    return os.path.getsize(path)
+
+
+def build(src_dir, detail_dir=None):
     files = sorted(glob.glob(os.path.join(src_dir, "*.xlsx")))
     files = [f for f in files
              if not os.path.basename(f).startswith("~$")        # skip Excel lock files
@@ -250,10 +296,13 @@ def build(src_dir):
     for f in files:
         month = month_from_filename(f)
         print(f"  reading {os.path.basename(f)}  ->  {month}", flush=True)
-        recs = process_file(f, month)
+        recs, detail = process_file(f, month)
         teams = len(recs)
         wo = sum(r["wo"] for r in recs)
         tickets = sum(r["tickets"] for r in recs)
+        if detail_dir:
+            kb = write_detail(os.path.join(detail_dir, month + ".json"), month, detail) / 1024
+            print(f"    detail: {len(detail)} WO -> {month}.json ({kb:.0f} KB)", flush=True)
         st = os.stat(f)
         sources.append({
             "file": os.path.basename(f),
@@ -319,7 +368,9 @@ def main():
     args = ap.parse_args()
 
     print(f"Building from: {os.path.abspath(args.src)}")
-    data = build(args.src)
+    # When writing output, also emit per-month drill-down files next to it in detail/.
+    detail_dir = os.path.join(os.path.dirname(args.out) or ".", "detail") if args.out else None
+    data = build(args.src, detail_dir)
     print(f"\nTotal: {len(data['records'])} records across {len(data['months'])} months")
 
     if args.validate:

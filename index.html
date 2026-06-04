@@ -194,6 +194,21 @@
   <div class="dialog-body" id="srcBody"></div>
 </dialog>
 
+<dialog id="drillDialog" class="dialog dialog-wide" aria-labelledby="drillTitle">
+  <div class="dialog-head">
+    <h2 id="drillTitle">เจาะลึกรายการใบงาน</h2>
+    <button class="iconbtn" id="drillClose" type="button" aria-label="close"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="dialog-toolbar">
+    <div class="drill-count" id="drillCount" aria-live="polite"></div>
+    <div class="drill-tools">
+      <span class="searchwrap"><svg class="ico" aria-hidden="true"><use href="#i-search"/></svg><input id="drillSearch" type="search" autocomplete="off"></span>
+      <button class="btn" id="drillExport" type="button"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg>CSV</button>
+    </div>
+  </div>
+  <div class="dialog-body" id="drillBody"></div>
+</dialog>
+
 <script src="js/app.js"></script>
 </body>
 </html>

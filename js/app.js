@@ -78,6 +78,20 @@ const I18N = {
     formulas: "<b>Duplicate WO/Ticket</b> = (WO − distinct tickets) ÷ WO<br><b>No real work</b> = WOs Canceled, with no Complete Solution, or No-Visit ÷ WO<br><b>Cross-province</b> = WOs whose province ≠ ticket's main province ÷ WO<br><b>Abnormal System WO</b> = WOs created by System ÷ WO<br>Units with fewer than “WO ≥” WOs in the latest month are excluded from ranking",
   },
 };
+Object.assign(I18N.th, {
+  drill_hint: "คลิกเพื่อดูรายการ", drill_title: "เจาะลึกรายการใบงาน", drill_loading: "กำลังโหลดรายละเอียด…",
+  drill_empty: "ไม่พบรายการตามเงื่อนไข", drill_tickets: "ใบ (Ticket)", drill_distinct: "Ticket ไม่ซ้ำ",
+  drill_first: "แสดง {n} แรก จาก", drill_more: "รายการ — ใช้ช่องค้นหาเพื่อกรอง", drill_search: "ค้นหาในรายการ…",
+  col_team: "ทีม", col_loc: "ภาค · จังหวัด", col_sev: "Severity", col_status: "Status",
+  col_wtype: "Work Type", col_root: "Root Cause", col_sla: "SLA", col_site: "Site",
+});
+Object.assign(I18N.en, {
+  drill_hint: "Click to list records", drill_title: "Drill-down records", drill_loading: "Loading detail…",
+  drill_empty: "No records match", drill_tickets: "tickets", drill_distinct: "distinct tickets",
+  drill_first: "Showing first {n} of", drill_more: "records — use search to narrow", drill_search: "Search list…",
+  col_team: "Team", col_loc: "Region · Province", col_sev: "Severity", col_status: "Status",
+  col_wtype: "Work Type", col_root: "Root Cause", col_sla: "SLA", col_site: "Site",
+});
 function t(k, vars) {
   let s = (I18N[LANG] && I18N[LANG][k]) != null ? I18N[LANG][k] : k;
   if (vars) for (const v in vars) s = s.replace("{" + v + "}", vars[v]);
@@ -118,7 +132,8 @@ function boot(DATA) {
     minWO: 20, sel: null, search: "", sortKey: "rank", sortDir: "asc",
     dim: Object.keys(DIMS)[0] || "sevT",
   };
-  let lastRows = [], refocusKey = null;
+  let lastRows = [], refocusKey = null, bdOtherKeys = [], drillState = null;
+  const detailCache = {};
 
   const $ = (id) => document.getElementById(id);
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
@@ -360,16 +375,102 @@ function boot(DATA) {
     if (!total) { $("bdContent").innerHTML = `<div class="hintbox">${icon("i-info")}${t("bd_empty")}</div>`; return; }
     const TOPN = 10;
     let shown = items.slice(0, TOPN);
+    bdOtherKeys = items.slice(TOPN).map((x) => x.key);
     const restN = items.slice(TOPN).reduce((s, x) => s + x.n, 0);
     if (restN) shown.push({ key: "__other__", n: restN });
     const maxN = Math.max(...shown.map((x) => x.n));
     $("bdContent").innerHTML = '<div class="bdbars">' + shown.map((x) => {
       const label = x.key === "__other__" ? t("other") : catLabel(x.key);
       const p = total ? (x.n / total * 100) : 0;
-      return `<div class="bdrow"><div class="bdlabel" title="${esc(label)}" lang="en">${esc(label)}</div>` +
+      return `<div class="bdrow" role="button" tabindex="0" data-cat="${esc(x.key)}" title="${esc(label)} — ${t("drill_hint")}">` +
+        `<div class="bdlabel" lang="en">${esc(label)}</div>` +
         `<div class="bdbar"><i style="width:${Math.max(1, x.n / maxN * 100)}%"></i></div>` +
-        `<div class="bdval tnum">${x.n.toLocaleString()}<span class="bdpct">${p.toFixed(1)}%</span></div></div>`;
+        `<div class="bdval tnum">${x.n.toLocaleString()}<span class="bdpct">${p.toFixed(1)}%</span></div>` +
+        `<span class="bdgo">${icon("i-chev")}</span></div>`;
     }).join("") + "</div>";
+  }
+
+  /* ---------- drill into a breakdown category: which tickets / WOs? ---------- */
+  const DIM_FIELD = { sevT: "tsev", status: "status", wtype: "wtype", root: "root", sla: "sla" };
+  function loadDetail(month) {
+    if (detailCache[month]) return Promise.resolve(detailCache[month]);
+    return fetch(`./data/detail/${month}.json`).then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then((d) => { d.fi = {}; d.fields.forEach((f, i) => (d.fi[f] = i)); detailCache[month] = d; return d; });
+  }
+  function openDrill(cat) {
+    const dim = S.dim, mi = rankMonth(), month = DATA.months[mi];
+    const field = DIM_FIELD[dim] || "tsev";
+    const targets = cat === "__other__" ? new Set(bdOtherKeys) : new Set([cat]);
+    const ticketMode = dim === "sevT";
+    const d = $("drillDialog");
+    $("drillTitle").textContent = t("drill_title");
+    $("drillCount").innerHTML = `<span class="muted">${t("drill_loading")}</span>`;
+    $("drillBody").innerHTML = ""; $("drillSearch").value = "";
+    if (d.showModal) d.showModal(); else d.setAttribute("open", "");
+    loadDetail(month).then((dt) => {
+      const fi = dt.fi, dict = dt.dict, matched = [];
+      for (const row of dt.rows) {
+        const region = dict.region[row[fi.region]], prov = dict.prov[row[fi.prov]], skill = dict.skill[row[fi.skill]], team = dict.team[row[fi.team]];
+        if (S.skill !== "ALL" && skill !== S.skill) continue;
+        if (S.level !== "region" && S.region && region !== S.region) continue;
+        if (S.level === "team" && S.prov && prov !== S.prov) continue;
+        if (S.sel) {
+          if (S.level === "region" && region !== S.sel) continue;
+          if (S.level === "prov" && region + " / " + prov !== S.sel) continue;
+          if (S.level === "team" && team !== S.sel) continue;
+        }
+        if (!targets.has(dict[field][row[fi[field]]])) continue;
+        matched.push({ tid: row[fi.tid], team, name: dict.name[row[fi.name]], region, prov,
+          tsev: dict.tsev[row[fi.tsev]], sev: dict.sev[row[fi.sev]], status: dict.status[row[fi.status]],
+          wtype: dict.wtype[row[fi.wtype]], root: dict.root[row[fi.root]], sla: dict.sla[row[fi.sla]], site: dict.site[row[fi.site]] });
+      }
+      drillState = { dim, catName: cat === "__other__" ? t("other") : catLabel(cat), month, ticketMode, matched };
+      renderDrill("");
+    }).catch((err) => { $("drillCount").textContent = ""; $("drillBody").innerHTML = `<div class="hintbox">${icon("i-alert")}${esc(String(err))}</div>`; });
+  }
+  function drillRows(q) {
+    const st = drillState;
+    let rows, distinct, woCount = st.matched.length;
+    if (st.ticketMode) {
+      const byT = {};
+      for (const m of st.matched) { const key = m.tid || "—"; if (!byT[key]) byT[key] = { tid: m.tid, name: m.name, region: m.region, prov: m.prov, sev: m.tsev, wo: 0, st: {} }; const g = byT[key]; g.wo++; g.st[m.status] = (g.st[m.status] || 0) + 1; }
+      rows = Object.values(byT).map((g) => ({ ...g, statusTop: Object.entries(g.st).sort((a, b) => b[1] - a[1])[0][0] }));
+      distinct = rows.length;
+    } else { rows = st.matched; distinct = new Set(st.matched.map((m) => m.tid).filter(Boolean)).size; }
+    if (q) { const s = q.toLowerCase(); rows = rows.filter((r) => (r.tid + " " + r.name + " " + r.region + " " + r.prov + " " + (r.sev || "") + " " + (r.status || r.statusTop || "") + " " + (r.wtype || "") + " " + (r.root || "")).toLowerCase().includes(s)); }
+    return { rows, distinct, woCount };
+  }
+  function renderDrill(q) {
+    const st = drillState; if (!st) return;
+    const { rows, distinct, woCount } = drillRows((q || "").trim());
+    $("drillCount").innerHTML = `${esc(dimLabel(st.dim))} = <b>${esc(st.catName)}</b> · ${monthLong(st.month)} · ` +
+      (st.ticketMode ? `<b class="tnum">${distinct.toLocaleString()}</b> ${t("drill_tickets")} <span class="muted">(${woCount.toLocaleString()} WO)</span>`
+        : `<b class="tnum">${woCount.toLocaleString()}</b> WO <span class="muted">· ${distinct.toLocaleString()} ${t("drill_distinct")}</span>`);
+    const CAP = 500, show = rows.slice(0, CAP);
+    let head, body;
+    if (st.ticketMode) {
+      head = `<tr><th class="l">Ticket ID</th><th class="l">${t("col_team")}</th><th class="l">${t("col_loc")}</th><th>${t("col_sev")}</th><th>WO</th><th class="l">${t("col_status")}</th></tr>`;
+      body = show.map((r) => `<tr><td class="l tnum" lang="en">${esc(r.tid || "—")}</td><td class="l"><span lang="en">${esc(r.name)}</span></td><td class="l">${esc(r.region)} · ${esc(r.prov)}</td><td>${esc(catLabel(r.sev))}</td><td class="tnum">${r.wo}</td><td class="l">${esc(r.statusTop)}</td></tr>`).join("");
+    } else {
+      head = `<tr><th class="l">Ticket ID</th><th class="l">${t("col_team")}</th><th class="l">${t("col_loc")}</th><th>${t("col_sev")}</th><th class="l">${t("col_status")}</th><th class="l">${t("col_wtype")}</th><th class="l">${t("col_root")}</th><th class="l">${t("col_sla")}</th><th class="l">${t("col_site")}</th></tr>`;
+      body = show.map((r) => `<tr><td class="l tnum" lang="en">${esc(r.tid || "—")}</td><td class="l"><span lang="en">${esc(r.name)}</span></td><td class="l">${esc(r.region)} · ${esc(r.prov)}</td><td>${esc(catLabel(r.sev))}</td><td class="l">${esc(r.status)}</td><td class="l">${esc(r.wtype)}</td><td class="l">${esc(r.root)}</td><td class="l">${esc(r.sla)}</td><td class="l" lang="en">${esc(r.site)}</td></tr>`).join("");
+    }
+    const note = rows.length > CAP ? `<div class="drill-note">${t("drill_first", { n: CAP })} ${rows.length.toLocaleString()} ${t("drill_more")}</div>` : "";
+    $("drillBody").innerHTML = rows.length ? `<div class="tablewrap" style="max-height:58vh"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>${note}` : `<div class="hintbox">${icon("i-filter")}${t("drill_empty")}</div>`;
+  }
+  function drillCSV() {
+    const st = drillState; if (!st) return;
+    const { rows } = drillRows($("drillSearch").value.trim());
+    const head = st.ticketMode ? ["Ticket ID", "team", "region", "prov", "severity", "WO", "status"]
+      : ["Ticket ID", "team", "region", "prov", "severity", "status", "work_type", "root_cause", "sla", "site"];
+    const line = (a) => a.map((v) => { v = v == null ? "" : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(",");
+    const out = [line(head)];
+    rows.forEach((r) => out.push(line(st.ticketMode ? [r.tid, r.name, r.region, r.prov, catLabel(r.sev), r.wo, r.statusTop]
+      : [r.tid, r.name, r.region, r.prov, catLabel(r.sev), r.status, r.wtype, r.root, r.sla, r.site])));
+    const blob = new Blob(["﻿" + out.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+    a.download = `drill_${st.dim}_${st.catName}_${st.month}.csv`.replace(/[^\w.\-]+/g, "_");
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
   }
   function selName(k) {
     const rr = recs().find((r) => keyOf(r) === k);
@@ -524,6 +625,7 @@ function boot(DATA) {
     document.documentElement.setAttribute("lang", LANG);
     document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
     $("search").placeholder = t("search_ph"); $("search").setAttribute("aria-label", t("search_al"));
+    $("drillSearch").placeholder = t("drill_search"); $("drillSearch").setAttribute("aria-label", t("drill_search"));
     $("signalNote").innerHTML = t("signal_note");
     $("tablewrap").setAttribute("aria-label", LANG === "en" ? "Ranking table (arrow keys move rows, Enter opens detail)" : "ตารางอันดับ (ลูกศรเลื่อนแถว Enter เปิดรายละเอียด)");
     $("scaleLegend").innerHTML =
@@ -589,6 +691,12 @@ function boot(DATA) {
     render();
   });
   $("dimSeg").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { S.dim = b.dataset.d; renderBreakdown(); $("dimSeg").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.d === S.dim))); writeURL(); } });
+  $("bdContent").addEventListener("click", (e) => { const r = e.target.closest(".bdrow"); if (r) openDrill(r.dataset.cat); });
+  $("bdContent").addEventListener("keydown", (e) => { const r = e.target.closest(".bdrow"); if (r && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openDrill(r.dataset.cat); } });
+  $("drillClose").onclick = () => $("drillDialog").close();
+  $("drillDialog").addEventListener("click", (e) => { if (e.target === $("drillDialog")) $("drillDialog").close(); });
+  $("drillSearch").oninput = debounce(() => renderDrill($("drillSearch").value), 150);
+  $("drillExport").onclick = drillCSV;
   $("fRegion").onchange = (e) => { S.region = e.target.value; S.prov = ""; S.sel = null; render(); };
   $("fProv").onchange = (e) => { S.prov = e.target.value; S.sel = null; render(); };
   $("minWO").onchange = (e) => { S.minWO = clampInt(+e.target.value || 0, 0, 100000); e.target.value = S.minWO; render(); };
@@ -616,7 +724,7 @@ function boot(DATA) {
     else if (e.key === "End") { e.preventDefault(); const a = tbody.querySelectorAll("tr[data-k]"); if (a.length) a[a.length - 1].focus(); }
   });
   $("detail").addEventListener("click", (e) => { if (e.target.closest('[data-action="close"]')) selectKey(S.sel, false); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.sel && !$("srcDialog").open) selectKey(S.sel, false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.sel && !$("srcDialog").open && !$("drillDialog").open) selectKey(S.sel, false); });
   $("themeToggle").onclick = () => {
     const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);

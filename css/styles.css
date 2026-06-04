@@ -476,10 +476,29 @@ td.month-col.is-rankcol, th.month-col.is-rankcol { background: color-mix(in okla
 .bdbar i { display: block; height: 100%; background: var(--accent); border-radius: var(--r-xs); transition: width .3s var(--ease); }
 .bdval { font-size: 12.5px; font-weight: 700; min-width: 96px; text-align: right; }
 .bdval .bdpct { color: var(--text-faint); font-weight: 500; margin-left: 7px; }
+.bdrow { cursor: pointer; padding: 5px 8px; margin: 0 -8px; border-radius: var(--r-sm); transition: background var(--dur) var(--ease); }
+.bdrow:hover { background: var(--surface-hover); }
+.bdrow:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+.bdgo { color: var(--text-faint); display: inline-flex; opacity: 0; transition: opacity var(--dur) var(--ease); }
+.bdgo .ico { width: 15px; height: 15px; }
+.bdrow:hover .bdgo, .bdrow:focus-visible .bdgo { opacity: 1; }
 @media (max-width: 560px) {
-  .bdrow { grid-template-columns: 1fr auto; }
+  .bdrow { grid-template-columns: 1fr auto auto; }
   .bdrow .bdbar { display: none; }
 }
+
+/* Drill dialog */
+.dialog-wide { max-width: 980px; }
+.dialog-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 11px 18px; border-bottom: 1px solid var(--border); }
+.drill-count { font-size: 12.5px; color: var(--text-muted); }
+.drill-count b { color: var(--text); font-weight: 700; }
+.drill-tools { display: flex; align-items: center; gap: 8px; }
+.drill-tools .searchwrap .ico { left: 11px; }
+#drillSearch { min-width: 190px; padding-left: 34px; }
+.drill-note { font-size: 11.5px; color: var(--text-muted); padding: 9px 2px 0; }
+#drillBody table { font-size: 12.5px; }
+#drillBody th { background: var(--surface-2); }
+#drillBody td { padding: 8px 10px; }
 
 /* ============================================================ Data-source dialog */
 .dialog {
