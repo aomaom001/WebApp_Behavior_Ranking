@@ -1,6 +1,6 @@
 /**
  * Zero-dependency static dev server.
- * Run with: npm run dev   (then open http://localhost:5173)
+ * Run with: npm run dev   (then open http://localhost:5273)
  *
  * Exists because the dashboard loads data/data.json via fetch(), which the
  * browser blocks under the file:// protocol. Any static server works — this
@@ -12,7 +12,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-const PORT = process.env.PORT || 5173;
+const PORT = process.env.PORT || 5273;
 const ROOT = __dirname;
 
 const MIME = {

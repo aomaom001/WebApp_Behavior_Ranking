@@ -38,9 +38,9 @@ WebApp_Behavior_Ranking/
 npm run dev
 ```
 
-แล้วเปิด <http://localhost:5173>
+แล้วเปิด <http://localhost:5273>
 
-> ไม่อยากใช้ Node ก็ได้ — ใช้ static server อะไรก็ได้ เช่น `python -m http.server 5173` หรือส่วนขยาย "Live Server" ใน VS Code
+> ไม่อยากใช้ Node ก็ได้ — ใช้ static server อะไรก็ได้ เช่น `python -m http.server 5273` หรือส่วนขยาย "Live Server" ใน VS Code
 
 ## Deploy (GitHub Pages)
 
