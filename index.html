@@ -4,55 +4,55 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Team Behavior Ranking Dashboard</title>
-<meta name="description" content="แดชบอร์ดกำกับดูแล จัดอันดับพฤติกรรมการทำงาน 4 ด้านของทีม เปรียบเทียบราย 2 เดือน จากข้อมูล MATELINE">
+<meta name="description" content="แดชบอร์ดกำกับดูแล จัดอันดับพฤติกรรมการทำงาน 4 ด้านของทีม เปรียบเทียบหลายเดือน เจาะลึกตาม Severity / Status / Work Type / Root Cause / SLA จากข้อมูล MATELINE">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
 <script>
-  // Apply saved/system theme before paint to avoid a flash of the wrong theme.
   (function () {
     try {
       var saved = localStorage.getItem("theme");
       var dark = saved ? saved === "dark"
         : window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
       document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+      var lang = localStorage.getItem("lang") || "th";
+      document.documentElement.setAttribute("lang", lang);
     } catch (e) { document.documentElement.setAttribute("data-theme", "light"); }
   })();
 </script>
 </head>
 <body>
 
-<!-- Icon sprite: one consistent stroke system, replaces all emoji -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-  <defs>
-    <symbol id="i-bars" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
-    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></symbol>
-    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
-    <symbol id="i-link" viewBox="0 0 24 24"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></symbol>
-    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
-    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></symbol>
-    <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
-    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M1 4v6h6M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></symbol>
-    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
-    <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
-    <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7"/></symbol>
-    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
-    <symbol id="i-caret" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
-    <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></symbol>
-    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 5l7 7-7 7"/></symbol>
-    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
-    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
-    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></symbol>
-    <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></symbol>
-  </defs>
-</svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <symbol id="i-bars" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 24 24"><path d="M1 4v6h6M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-caret" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 5l7 7-7 7"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></symbol>
+  <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></symbol>
+</defs></svg>
 
-<a href="#main" class="skip-link">ข้ามไปยังเนื้อหาหลัก</a>
+<a href="#main" class="skip-link" data-i18n="skip">ข้ามไปยังเนื้อหาหลัก</a>
 
 <div class="loading" id="loading" role="status" aria-live="polite">
   <div class="loading-spinner" aria-hidden="true"></div>
-  <span>กำลังโหลดข้อมูล…</span>
+  <span data-i18n="loading">กำลังโหลดข้อมูล…</span>
 </div>
 
 <div class="wrap">
@@ -60,31 +60,29 @@
     <div class="brand">
       <span class="brand-mark" aria-hidden="true"><svg class="ico"><use href="#i-bars"/></svg></span>
       <h1>Team Behavior Ranking
-        <span class="sub">เปรียบเทียบพฤติกรรมการทำงาน 4 ด้าน ระหว่าง 2 เดือน · <span lang="en">MATELINE</span></span>
+        <span class="sub" id="subtitle" data-i18n="subtitle">เปรียบเทียบพฤติกรรมการทำงาน 4 ด้าน · เจาะลึกหลายมิติ · MATELINE</span>
       </h1>
     </div>
     <div class="head-actions">
-      <button class="iconbtn" id="dataSrc" type="button" title="ดูว่าข้อมูลมาจากไฟล์ใดบ้าง">
-        <svg class="ico" aria-hidden="true"><use href="#i-db"/></svg><span class="lbl" id="dataSrcLbl">ที่มาข้อมูล</span>
-      </button>
-      <button class="iconbtn" id="copyLink" type="button" title="คัดลอกลิงก์มุมมองนี้ (พร้อมตัวกรองทั้งหมด)">
-        <svg class="ico" aria-hidden="true"><use href="#i-link"/></svg><span class="lbl">คัดลอกลิงก์</span>
-      </button>
-      <button class="iconbtn" id="themeToggle" type="button" aria-label="สลับธีมสว่าง/มืด">
-        <svg class="ico" aria-hidden="true"><use href="#i-moon"/></svg>
-      </button>
+      <div class="seg seg-lang" id="langSeg" role="group" aria-label="Language / ภาษา">
+        <button type="button" data-lang="th" lang="th">ไทย</button>
+        <button type="button" data-lang="en" lang="en">EN</button>
+      </div>
+      <button class="iconbtn" id="dataSrc" type="button"><svg class="ico" aria-hidden="true"><use href="#i-db"/></svg><span class="lbl" id="dataSrcLbl">ที่มาข้อมูล</span></button>
+      <button class="iconbtn" id="copyLink" type="button"><svg class="ico" aria-hidden="true"><use href="#i-link"/></svg><span class="lbl" data-i18n="copy">คัดลอกลิงก์</span></button>
+      <button class="iconbtn" id="themeToggle" type="button" aria-label="theme"><svg class="ico" aria-hidden="true"><use href="#i-moon"/></svg></button>
     </div>
   </header>
 
   <main id="main">
-  <div class="tabs" id="behTabs" role="tablist" aria-label="เลือกพฤติกรรมที่จะจัดอันดับ"></div>
+  <div class="tabs" id="behTabs" role="tablist" aria-label="behavior"></div>
 
-  <div class="controls" role="group" aria-label="ตัวกรองและการเปรียบเทียบ">
+  <div class="controls" role="group" aria-label="filters">
     <div class="cgroup">
       <span class="cgroup-title" id="lbl-skill">Skill</span>
       <div class="cgroup-body">
         <div class="seg" id="skillSeg" role="group" aria-labelledby="lbl-skill">
-          <button type="button" data-v="ALL" aria-pressed="true">ทุก Skill</button>
+          <button type="button" data-v="ALL" aria-pressed="true" data-i18n="skill_all">ทุก Skill</button>
           <button type="button" data-v="NODE" aria-pressed="false" lang="en">NODE</button>
           <button type="button" data-v="OFC" aria-pressed="false" lang="en">OFC</button>
         </div>
@@ -92,35 +90,38 @@
     </div>
 
     <div class="cgroup">
-      <span class="cgroup-title" id="lbl-level">จัดอันดับราย</span>
+      <span class="cgroup-title" id="lbl-level" data-i18n="ctl_level">จัดอันดับราย</span>
       <div class="cgroup-body">
         <div class="seg" id="levelSeg" role="group" aria-labelledby="lbl-level">
-          <button type="button" data-v="region" aria-pressed="true">ภาค</button>
-          <button type="button" data-v="prov" aria-pressed="false">จังหวัด</button>
-          <button type="button" data-v="team" aria-pressed="false">ทีม</button>
+          <button type="button" data-v="region" aria-pressed="true" data-i18n="lvl_region">ภาค</button>
+          <button type="button" data-v="prov" aria-pressed="false" data-i18n="lvl_prov">จังหวัด</button>
+          <button type="button" data-v="team" aria-pressed="false" data-i18n="lvl_team">ทีม</button>
         </div>
-        <select id="fRegion" class="drill" aria-label="กรองเฉพาะภาค"></select>
-        <select id="fProv" class="drill" aria-label="กรองเฉพาะจังหวัด"></select>
+        <select id="fRegion" class="drill" aria-label="region filter"></select>
+        <select id="fProv" class="drill" aria-label="province filter"></select>
+      </div>
+    </div>
+
+    <div class="cgroup cgroup-grow">
+      <span class="cgroup-title" data-i18n="ctl_months">เลือกเดือนที่เปรียบเทียบ</span>
+      <div class="cgroup-body cgroup-months">
+        <div class="month-chips" id="monthChips" role="group" aria-label="months"></div>
+        <div class="month-quick">
+          <button type="button" class="chiplink" data-q="all" data-i18n="q_all">ทั้งหมด</button>
+          <button type="button" class="chiplink" data-q="last3" data-i18n="q_last3">3 ล่าสุด</button>
+          <button type="button" class="chiplink" data-q="last6" data-i18n="q_last6">6 ล่าสุด</button>
+        </div>
       </div>
     </div>
 
     <div class="cgroup">
-      <span class="cgroup-title">เปรียบเทียบเดือน</span>
-      <div class="cgroup-body month-cmp">
-        <select id="mA" aria-label="เดือนตั้งต้น (baseline)"></select>
-        <span class="arrow" aria-hidden="true"><svg class="ico"><use href="#i-arrow"/></svg></span>
-        <select id="mB" aria-label="เดือนเปรียบเทียบ"></select>
-      </div>
-    </div>
-
-    <div class="cgroup">
-      <span class="cgroup-title">กรองผล</span>
+      <span class="cgroup-title" data-i18n="ctl_filter">กรองผล</span>
       <div class="cgroup-body">
-        <label class="field-inline" title="ตัดหน่วยที่มี WO ในเดือนเปรียบเทียบน้อยกว่าค่านี้ออกจากการจัดอันดับ"><span lang="en">WO</span>&nbsp;≥
+        <label class="field-inline"><span lang="en">WO</span>&nbsp;≥
           <input id="minWO" type="number" value="20" min="0" max="100000" step="5" inputmode="numeric"></label>
         <span class="searchwrap">
           <svg class="ico" aria-hidden="true"><use href="#i-search"/></svg>
-          <input id="search" type="search" aria-label="ค้นหาชื่อ ภาค หรือจังหวัด" placeholder="ค้นหา ชื่อ / ภาค / จังหวัด…" autocomplete="off">
+          <input id="search" type="search" aria-label="search" placeholder="ค้นหา ชื่อ / ภาค / จังหวัด…" autocomplete="off">
         </span>
       </div>
     </div>
@@ -129,7 +130,7 @@
       <span class="cgroup-title">&nbsp;</span>
       <div class="cgroup-body">
         <button class="btn" id="exportBtn" type="button"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg>Export CSV</button>
-        <button class="btn btn-ghost" id="clearBtn" type="button"><svg class="ico" aria-hidden="true"><use href="#i-reset"/></svg>ล้างตัวกรอง</button>
+        <button class="btn btn-ghost" id="clearBtn" type="button"><svg class="ico" aria-hidden="true"><use href="#i-reset"/></svg><span data-i18n="clear">ล้างตัวกรอง</span></button>
       </div>
     </div>
   </div>
@@ -146,29 +147,15 @@
 
       <div class="signal-note">
         <svg class="ico" aria-hidden="true"><use href="#i-info"/></svg>
-        <span>อันดับสูง = <b>สัญญาณให้เข้าไปตรวจสอบ</b> ไม่ใช่ข้อสรุปว่าทำผิด — ตัวเลขสูงคือจุดที่ควรดูต่อ</span>
+        <span id="signalNote">อันดับสูง = <b>สัญญาณให้เข้าไปตรวจสอบ</b> ไม่ใช่ข้อสรุปว่าทำผิด</span>
       </div>
 
-      <div class="scale-legend" aria-hidden="true">
-        <span><span class="swatch" style="border-color:var(--accent)"></span>ค่าต่ำ = ดีกว่า · อันดับ 1 = แย่ที่สุด</span>
-        <span class="down"><svg class="ico"><use href="#i-down"/></svg>ลดลง = ดีขึ้น</span>
-        <span class="up"><svg class="ico"><use href="#i-up"/></svg>เพิ่มขึ้น = แย่ลง</span>
-        <span class="flat"><svg class="ico"><use href="#i-minus"/></svg>|Δ| &lt; 0.05 pt = ทรงตัว</span>
-      </div>
+      <div class="scale-legend" id="scaleLegend" aria-hidden="true"></div>
 
-      <div class="tablewrap" tabindex="0" role="region" aria-label="ตารางอันดับ (ใช้ลูกศรขึ้น/ลงเลื่อนระหว่างแถว Enter เพื่อดูรายละเอียด)">
+      <div class="tablewrap" id="tablewrap" tabindex="0" role="region" aria-label="ranking table">
         <table>
-          <caption class="sr-only">ตารางจัดอันดับหน่วยตามพฤติกรรม เรียงแย่ที่สุดขึ้นก่อน คลิกหัวคอลัมน์เพื่อเปลี่ยนการเรียง</caption>
-          <thead>
-            <tr id="rankHead">
-              <th class="l" data-sort="rank" aria-sort="descending"><button type="button">#<svg class="caret ico" aria-hidden="true"><use href="#i-caret"/></svg></button></th>
-              <th class="l" data-sort="name"><button type="button">ชื่อ<svg class="caret ico" aria-hidden="true"><use href="#i-caret"/></svg></button></th>
-              <th data-sort="rA"><button type="button">A <span class="mA-lbl tnum"></span><svg class="caret ico" aria-hidden="true"><use href="#i-caret"/></svg></button></th>
-              <th data-sort="rB"><button type="button">B <span class="mB-lbl tnum"></span><svg class="caret ico" aria-hidden="true"><use href="#i-caret"/></svg></button></th>
-              <th data-sort="delta"><button type="button">Δ เปลี่ยนแปลง<svg class="caret ico" aria-hidden="true"><use href="#i-caret"/></svg></button></th>
-              <th data-sort="woB"><button type="button"><span lang="en">WO</span> (B)<svg class="caret ico" aria-hidden="true"><use href="#i-caret"/></svg></button></th>
-            </tr>
-          </thead>
+          <caption class="sr-only" id="tableCaption">ตารางจัดอันดับ</caption>
+          <thead id="rankHead"></thead>
           <tbody id="rankBody"></tbody>
         </table>
       </div>
@@ -177,11 +164,8 @@
     <section class="panel" aria-labelledby="detailTitle">
       <div class="panel-head"><h2 id="detailTitle">รายละเอียดหน่วยที่เลือก</h2></div>
       <div id="detail"></div>
-
       <div class="panel-head" style="margin-top:4px"><h2 id="trendTitle">แนวโน้มรายเดือน</h2></div>
-      <div class="chartbox">
-        <svg id="chart" role="img" aria-labelledby="chartDesc" preserveAspectRatio="none"></svg>
-      </div>
+      <div class="chartbox"><svg id="chart" role="img" aria-labelledby="chartDesc" preserveAspectRatio="none"></svg></div>
       <p id="chartDesc" class="sr-only"></p>
       <div class="legend" id="legend"></div>
       <div id="chartTable" class="sr-only"></div>
@@ -189,14 +173,23 @@
     </section>
   </div>
 
+  <section class="panel panel-bd" aria-labelledby="bdTitle">
+    <div class="panel-head">
+      <h2 id="bdTitle"><svg class="ico" aria-hidden="true" style="color:var(--accent)"><use href="#i-layers"/></svg> <span data-i18n="bd_title">เจาะลึกการกระจายตัว</span></h2>
+      <div class="bd-scope" id="bdScope" aria-live="polite"></div>
+    </div>
+    <div class="seg seg-wrap" id="dimSeg" role="group" aria-label="dimension"></div>
+    <div id="bdContent"></div>
+  </section>
+
   <footer class="foot" id="foot"></footer>
   </main>
 </div>
 
 <dialog id="srcDialog" class="dialog" aria-labelledby="srcDialogTitle">
   <div class="dialog-head">
-    <h2 id="srcDialogTitle">ที่มาของข้อมูล</h2>
-    <button class="iconbtn" id="srcClose" type="button" aria-label="ปิดหน้าต่าง"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button>
+    <h2 id="srcDialogTitle" data-i18n="src_title">ที่มาของข้อมูล</h2>
+    <button class="iconbtn" id="srcClose" type="button" aria-label="close"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button>
   </div>
   <div class="dialog-body" id="srcBody"></div>
 </dialog>

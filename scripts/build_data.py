@@ -14,10 +14,12 @@ Requires: pandas-free, only openpyxl (pip install openpyxl).
 
 Input  : files named "..._YYYYMM.xlsx", sheet "RAW Data", one row per WO.
 Output : { "months": [...],
-           "records": [ {team,name,region,prov,skill,m, wo,tickets,dup,nowork,cancel,cross,sys,man}, ... ],
+           "records": [ {team,name,region,prov,skill,m, wo,tickets,dup,nowork,cancel,cross,sys,man,
+                         bd:{ sevT:{}, status:{}, wtype:{}, root:{}, sla:{} }}, ... ],
            "behaviors": { metric -> label },
-           "meta": { generated_at, src, source_system, total_files, total_records, total_wo,
-                     sources: [ {file,month,teams,wo,tickets,size_kb,modified}, ... ] } }   # data provenance
+           "dims":      { dim -> {label_th,label_en,unit,cats:[{key,total},...]} },  # drill-down catalog
+           "meta":      { generated_at, src, source_system, total_files, total_records, total_wo,
+                          sources: [ {file,month,teams,wo,tickets,size_kb,modified}, ... ] } }   # provenance
 
 Behaviour metrics (lower = better; see README):
   dup    = wo - tickets            (extra WOs opened against the same ticket)
@@ -27,10 +29,16 @@ Behaviour metrics (lower = better; see README):
   sys    = WOs whose "WO Creator" is "System"
   man    = wo - sys
 
+Drill-down breakdowns (bd): per team-per-month category counts, stored sparse so they
+sum cleanly up to province / region. `sevT` counts distinct TICKETS by severity class
+(SA1-5 / NSA1-5 / OTHER); the rest count WOs. Summing tickets across teams shares the
+same cross-team caveat as the `tickets` field (a ticket worked by two teams counts in
+both) — acceptable and consistent with the existing model.
+
 NOTE ON `cross`: the original (pre-pipeline) numbers were produced by a tool we no
 longer have. The definition above ("main province = most frequent province of the
 ticket") matches the README and reproduces the legacy figures for the large majority
-of teams, but not all — the legacy tool likely used an extra site→province lookup.
+of teams, but not all — the legacy tool likely used an extra site->province lookup.
 If you recover that rule, edit `ticket_main_province()` only; everything else is exact.
 """
 
@@ -49,6 +57,11 @@ except ImportError:
     sys.exit("openpyxl is required:  pip install openpyxl")
 
 SHEET = "RAW Data"
+NEEDED = [
+    "Team", "Source Ticket ID", "Province", "Region", "Skill",
+    "Status", "WO Creator", "Complete Solution",
+    "Severity", "Work Type", "Root Cause", "SLA",
+]
 
 # Human-readable behaviour labels embedded in the output for the dashboard.
 BEHAVIORS = {
@@ -57,10 +70,18 @@ BEHAVIORS = {
     "cross": "ช่วยข้าม Province (Cross-province)",
     "sys": "System WO ผิดปกติ (System ratio)",
 }
-NEEDED = [
-    "Team", "Source Ticket ID", "Province", "Region", "Skill",
-    "Status", "WO Creator", "Complete Solution",
-]
+
+NONE_LABEL = "ไม่ระบุ"
+
+# Drill-down dimensions surfaced for deeper analysis. Classification, Target Onsite Status
+# and Suspend Status were all-empty in the source data, so they are intentionally excluded.
+DIM_META = {
+    "sevT":   {"col": "Severity",   "label_th": "ระดับความรุนแรง (Severity)", "label_en": "Severity",   "unit": "ticket"},
+    "status": {"col": "Status",     "label_th": "สถานะงาน (Status)",          "label_en": "Status",     "unit": "wo"},
+    "wtype":  {"col": "Work Type",  "label_th": "ประเภทงาน (Work Type)",      "label_en": "Work Type",  "unit": "wo"},
+    "root":   {"col": "Root Cause", "label_th": "สาเหตุหลัก (Root Cause)",    "label_en": "Root Cause", "unit": "wo"},
+    "sla":    {"col": "SLA",        "label_th": "สถานะ SLA",                 "label_en": "SLA status", "unit": "wo"},
+}
 
 
 def month_from_filename(path):
@@ -75,7 +96,6 @@ def parse_name(team):
     """Extract the person name embedded in the team label.
 
     'MT-CW-NKW-OFC-003 ( Natthawut_OF_NKW  Tel.0930804435_C06 )' -> 'Natthawut_OF_NKW'
-    'EX-EA-PCR-OFC-016 ( Jakrin _OF_PCR  Tel... )'               -> 'Jakrin'
     """
     if not team:
         return ""
@@ -91,6 +111,19 @@ def is_empty(v):
     return v is None or (isinstance(v, str) and v.strip() == "")
 
 
+def sev_group(v):
+    """'SA4-24H' -> 'SA4', 'NSA3-24H' -> 'NSA3', empty/other -> 'OTHER'."""
+    if is_empty(v):
+        return "OTHER"
+    m = re.match(r"\s*(N?SA)\s*(\d)", str(v))
+    return (m.group(1) + m.group(2)) if m else "OTHER"
+
+
+def cat_label(v):
+    """Normalise a raw cell to a display category; blanks collapse to NONE_LABEL."""
+    return NONE_LABEL if is_empty(v) else str(v).strip()
+
+
 def ticket_main_province(rows, col):
     """Most common Province per Source Ticket ID (the ticket's 'home' province)."""
     by_ticket = defaultdict(Counter)
@@ -99,6 +132,17 @@ def ticket_main_province(rows, col):
         if is_empty(tid):
             continue
         by_ticket[tid][r[col["Province"]]] += 1
+    return {tid: c.most_common(1)[0][0] for tid, c in by_ticket.items()}
+
+
+def ticket_main_sev(rows, col):
+    """Most common severity-group per Source Ticket ID."""
+    by_ticket = defaultdict(Counter)
+    for r in rows:
+        tid = r[col["Source Ticket ID"]]
+        if is_empty(tid):
+            continue
+        by_ticket[tid][sev_group(r[col["Severity"]])] += 1
     return {tid: c.most_common(1)[0][0] for tid, c in by_ticket.items()}
 
 
@@ -121,11 +165,12 @@ def process_file(path, month):
     wb.close()
 
     main_prov = ticket_main_province(rows, col)
+    main_sev = ticket_main_sev(rows, col)
 
-    # Per-team accumulators
     agg = defaultdict(lambda: {
         "tickets": set(), "wo": 0, "sys": 0, "cancel": 0, "nowork": 0, "cross": 0,
-        "meta": Counter(),  # vote region/prov/skill in case of stray values
+        "meta": Counter(),
+        "status": Counter(), "wtype": Counter(), "root": Counter(), "sla": Counter(),
     })
     for r in rows:
         team = r[col["Team"]]
@@ -136,25 +181,35 @@ def process_file(path, month):
         tid = r[col["Source Ticket ID"]]
         if not is_empty(tid):
             a["tickets"].add(tid)
-        creator = r[col["WO Creator"]]
-        if creator == "System":
+        if r[col["WO Creator"]] == "System":
             a["sys"] += 1
         status = r[col["Status"]]
         canceled = status == "Canceled"
         if canceled:
             a["cancel"] += 1
-        if canceled or is_empty(r[col["Complete Solution"]]):
+        wtype_raw = r[col["Work Type"]]
+        # "ไม่ทำงานจริง": Canceled, OR no Complete Solution, OR a No-Visit work type (per README).
+        if canceled or is_empty(r[col["Complete Solution"]]) or wtype_raw == "No-Visit":
             a["nowork"] += 1
         prov = r[col["Province"]]
         if not is_empty(tid) and prov != main_prov.get(tid, prov):
             a["cross"] += 1
         a["meta"][(r[col["Region"]], prov, r[col["Skill"]])] += 1
+        # drill-down breakdowns (WO-level)
+        a["status"][cat_label(status)] += 1
+        a["wtype"][cat_label(wtype_raw)] += 1
+        a["root"][cat_label(r[col["Root Cause"]])] += 1
+        a["sla"][cat_label(r[col["SLA"]])] += 1
 
     records = []
     for team, a in agg.items():
         region, prov, skill = a["meta"].most_common(1)[0][0]
         wo = a["wo"]
         tickets = len(a["tickets"])
+        # tickets-by-severity for this team
+        sevT = Counter()
+        for tid in a["tickets"]:
+            sevT[main_sev.get(tid, "OTHER")] += 1
         records.append({
             "team": team,
             "name": parse_name(team),
@@ -170,13 +225,22 @@ def process_file(path, month):
             "cross": a["cross"],
             "sys": a["sys"],
             "man": wo - a["sys"],
+            "bd": {
+                "sevT": dict(sevT),
+                "status": dict(a["status"]),
+                "wtype": dict(a["wtype"]),
+                "root": dict(a["root"]),
+                "sla": dict(a["sla"]),
+            },
         })
     return records
 
 
 def build(src_dir):
     files = sorted(glob.glob(os.path.join(src_dir, "*.xlsx")))
-    files = [f for f in files if re.search(r"\d{6}", os.path.basename(f))]
+    files = [f for f in files
+             if not os.path.basename(f).startswith("~$")        # skip Excel lock files
+             and re.search(r"\d{6}", os.path.basename(f))]
     if not files:
         sys.exit(f"no '*YYYYMM*.xlsx' files found in {src_dir}")
     all_records = []
@@ -205,7 +269,19 @@ def build(src_dir):
         months.append(month)
         print(f"    {teams} teams, {wo} WO", flush=True)
     months = sorted(set(months))
-    # Provenance — lets the dashboard answer "which files, how many, from where".
+
+    # drill-down catalog: global category order + totals per dimension
+    dim_totals = {d: Counter() for d in DIM_META}
+    for r in all_records:
+        for d in DIM_META:
+            dim_totals[d].update(r["bd"][d])
+    dims = {}
+    for d, m in DIM_META.items():
+        dims[d] = {
+            "label_th": m["label_th"], "label_en": m["label_en"], "unit": m["unit"],
+            "cats": [{"key": k, "total": v} for k, v in dim_totals[d].most_common()],
+        }
+
     meta = {
         "generated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "src": os.path.abspath(src_dir),
@@ -215,7 +291,7 @@ def build(src_dir):
         "total_wo": total_wo,
         "sources": sources,
     }
-    return {"months": months, "records": all_records, "behaviors": BEHAVIORS, "meta": meta}
+    return {"months": months, "records": all_records, "behaviors": BEHAVIORS, "dims": dims, "meta": meta}
 
 
 def validate(generated, ref_path):
