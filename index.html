@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Team Behavior Ranking Dashboard</title>
-<meta name="description" content="แดชบอร์ดกำกับดูแล จัดอันดับพฤติกรรมการทำงาน 4 ด้านของทีม เปรียบเทียบหลายเดือน เจาะลึกตาม Severity / Status / Work Type / Root Cause / SLA จากข้อมูล MATELINE">
+<meta name="description" content="แดชบอร์ดกำกับดูแล จัดอันดับทีมตามพฤติกรรม WO ซ้ำ Ticket เดิม เปรียบเทียบหลายเดือน เจาะลึกตาม Severity / Status / Work Type / Root Cause / SLA จากข้อมูล MATELINE">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/styles.css?v=3">
 <script>
   (function () {
     try {
@@ -60,7 +60,7 @@
     <div class="brand">
       <span class="brand-mark" aria-hidden="true"><svg class="ico"><use href="#i-bars"/></svg></span>
       <h1>Team Behavior Ranking
-        <span class="sub" id="subtitle" data-i18n="subtitle">เปรียบเทียบพฤติกรรมการทำงาน 4 ด้าน · เจาะลึกหลายมิติ · MATELINE</span>
+        <span class="sub" id="subtitle" data-i18n="subtitle">จัดอันดับ WO ซ้ำ Ticket เดิม · เจาะลึกหลายมิติ · MATELINE</span>
       </h1>
     </div>
     <div class="head-actions">
@@ -74,8 +74,12 @@
     </div>
   </header>
 
+  <div class="shell">
+  <aside class="sidebar">
+    <div class="nav-label" data-i18n="nav_conditions">เงื่อนไขจับผิด</div>
+    <nav id="behNav" role="tablist" aria-label="เงื่อนไขจับผิด"></nav>
+  </aside>
   <main id="main">
-  <div class="tabs" id="behTabs" role="tablist" aria-label="behavior"></div>
 
   <div class="controls" role="group" aria-label="filters">
     <div class="cgroup">
@@ -137,8 +141,7 @@
 
   <div class="cards" id="cards"></div>
 
-  <div class="grid2">
-    <section class="panel" aria-labelledby="rankTitle">
+  <section class="panel" aria-labelledby="rankTitle">
       <div class="panel-head">
         <h2 id="rankTitle">อันดับพฤติกรรม</h2>
         <div class="rowcount" id="rowcount" aria-live="polite"></div>
@@ -161,17 +164,22 @@
       </div>
     </section>
 
-    <section class="panel" aria-labelledby="detailTitle">
-      <div class="panel-head"><h2 id="detailTitle">รายละเอียดหน่วยที่เลือก</h2></div>
-      <div id="detail"></div>
-      <div class="panel-head" style="margin-top:4px"><h2 id="trendTitle">แนวโน้มรายเดือน</h2></div>
-      <div class="chartbox"><svg id="chart" role="img" aria-labelledby="chartDesc" preserveAspectRatio="none"></svg></div>
-      <p id="chartDesc" class="sr-only"></p>
-      <div class="legend" id="legend"></div>
-      <div id="chartTable" class="sr-only"></div>
-      <div id="miniStats" style="margin-top:10px"></div>
-    </section>
-  </div>
+  <section class="panel panel-unit" aria-labelledby="detailTitle">
+    <div class="unit-grid">
+      <div class="unit-detail">
+        <div class="panel-head"><h2 id="detailTitle">รายละเอียดหน่วยที่เลือก</h2></div>
+        <div id="detail"></div>
+      </div>
+      <div class="unit-chart">
+        <div class="panel-head"><h2 id="trendTitle">แนวโน้มรายเดือน</h2></div>
+        <div class="chartbox"><svg id="chart" role="img" aria-labelledby="chartDesc" preserveAspectRatio="none"></svg></div>
+        <p id="chartDesc" class="sr-only"></p>
+        <div class="legend" id="legend"></div>
+        <div id="chartTable" class="sr-only"></div>
+        <div id="miniStats" style="margin-top:10px"></div>
+      </div>
+    </div>
+  </section>
 
   <section class="panel panel-bd" aria-labelledby="bdTitle">
     <div class="panel-head">
@@ -184,6 +192,7 @@
 
   <footer class="foot" id="foot"></footer>
   </main>
+  </div>
 </div>
 
 <dialog id="srcDialog" class="dialog" aria-labelledby="srcDialogTitle">
@@ -209,6 +218,6 @@
   <div class="dialog-body" id="drillBody"></div>
 </dialog>
 
-<script src="js/app.js"></script>
+<script src="js/app.js?v=3"></script>
 </body>
 </html>

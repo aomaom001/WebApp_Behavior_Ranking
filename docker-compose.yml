@@ -1,0 +1,79 @@
+# Self-contained stack: PostgreSQL + API + web dashboard (just like the other project).
+#   1) docker compose up -d --build
+#   2) seed the bundled DB once from the Excel files (see DEPLOY.md "Load data"):
+#        python scripts/load_pg.py --src ..        (PG_HOST=localhost PG_PORT=5433 PG_DB=tt PG_USER=postgres PG_PASSWORD=ttpass)
+#   3) open http://<host>:8088
+#
+# To use an EXISTING PostgreSQL instead, set PG_HOST/PG_PORT/PG_DB/PG_USER/PG_PASSWORD/PG_TABLE
+# (and you can delete the 'db' service + its volume).
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ww-tt-db
+    environment:
+      POSTGRES_DB: ${PG_DB:-tt}
+      POSTGRES_USER: ${PG_USER:-postgres}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-ttpass}
+    volumes:
+      - ttpgdata:/var/lib/postgresql/data
+    ports:
+      - "5440:5432"        # host:container — for the one-time data load + pgAdmin access
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-postgres} -d ${PG_DB:-tt}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    image: ww-tt-api:latest
+    container_name: ww-tt-api
+    environment:
+      PG_HOST: ${PG_HOST:-db}                 # bundled db by default
+      PG_PORT: ${PG_PORT:-5432}
+      PG_DB: ${PG_DB:-tt}
+      PG_USER: ${PG_USER:-postgres}
+      PG_PASSWORD: ${PG_PASSWORD:-ttpass}
+      PG_TABLE: ${PG_TABLE:-mateline_ticket_closed}
+      MONTH_SQL: ${MONTH_SQL:-to_char(closed, 'YYYY-MM')}
+      COLMAP_JSON: ${COLMAP_JSON:-}
+      CACHE_TTL: ${CACHE_TTL:-600}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  dashboard:
+    build: .
+    image: ww-tt-dashboard:latest
+    container_name: ww-tt-dashboard
+    depends_on:
+      - api
+    ports:
+      - "8088:80"          # host:container — change 8088 if taken
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Web pgAdmin to browse the bundled DB in a browser (open http://<host>:5051).
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ww-tt-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5051:80"
+    depends_on:
+      - db
+    restart: unless-stopped
+
+volumes:
+  ttpgdata:

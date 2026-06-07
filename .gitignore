@@ -1,11 +1,14 @@
 # Dependencies
 node_modules/
 
-# Python (data pipeline)
+# Python (data pipeline / API)
 __pycache__/
 *.pyc
 .venv/
 venv/
+
+# Secrets — DB credentials for the API live here, never commit
+.env
 
 # Source data exports (large Excel files live outside the repo)
 *.xlsx
