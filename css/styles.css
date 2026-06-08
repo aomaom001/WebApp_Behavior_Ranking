@@ -561,6 +561,14 @@ td.month-col.is-rankcol, th.month-col.is-rankcol { background: color-mix(in okla
 .cf:hover { border-color: var(--border-strong); }
 .cf:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring); }
 
+/* ============================================================ PDT & Point view */
+#pdtFilters { margin-bottom: 18px; }
+.pdt-f { min-width: 128px; }
+.pdt-top { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; margin-bottom: 18px; }
+@media (max-width: 980px) { .pdt-top { grid-template-columns: 1fr; } }
+#pdtView > .panel { margin-bottom: 18px; }
+#pdtView .namecell .nm { max-width: 26ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* ============================================================ Data-source dialog */
 .dialog {
   border: none; padding: 0; border-radius: var(--r-lg);

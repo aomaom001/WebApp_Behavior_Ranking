@@ -61,6 +61,14 @@ TTL = float(os.environ.get("CACHE_TTL", "600"))
 app = FastAPI(title="Team Behavior Ranking API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
+
+@app.middleware("http")
+async def no_store(request, call_next):
+    # Live data must never be cached by the browser — otherwise a redeploy keeps showing stale results.
+    resp = await call_next(request)
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
 _lock = threading.Lock()
 _cache = {"built_at": 0.0, "data": None, "detail": {}}
 
@@ -163,6 +171,125 @@ def api_refresh():
     with _lock:
         _rebuild()
     return {"ok": True, "months": _cache["data"]["months"], "records": len(_cache["data"]["records"])}
+
+
+@app.get("/api/pdtpoint")
+def pdtpoint(months: str = "", weeks: str = "", status: str = "", region: str = "", skill: str = "", province: str = ""):
+    """PDT & Point detection. Panels 1-2 from work_load; panels 3-4 from mateline_ticket_closed.
+    Thresholds: PDT/Day(AVG) fail = OFC<2.7, NODE<3.5 (OFC-L2 excluded); Man Hour/Day fail = <9;
+    Point/Day over standard = >13. Everything ranked worst-first."""
+    nm = agg_core.parse_name
+    try:
+        with _connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT DISTINCT source_month m FROM work_load WHERE source_month IS NOT NULL ORDER BY 1")
+            allmonths = [r["m"] for r in cur.fetchall()]
+            sel = [m for m in months.split(",") if m in allmonths]
+            if not sel:
+                sel = allmonths[-1:]
+            cur.execute("SELECT w FROM (SELECT DISTINCT flag_wk w FROM work_load "
+                        "WHERE source_month = ANY(%s) AND flag_wk IS NOT NULL) t "
+                        "ORDER BY nullif(regexp_replace(w, '\\D', '', 'g'), '')::int", (sel,))
+            allweeks = [r["w"] for r in cur.fetchall()]
+            wsel = [w for w in weeks.split(",") if w in allweeks]
+
+            def dist(col):
+                cur.execute(f"SELECT DISTINCT {col} c FROM work_load WHERE {col} IS NOT NULL ORDER BY 1")
+                return [r["c"] for r in cur.fetchall()]
+            opts = {"months": allmonths, "weeks": allweeks, "statuses": dist("status_team"),
+                    "regions": dist("region"), "skills": dist("skill"), "provinces": dist("province")}
+
+            params = {"ms": sel, "wl": wsel, "wlen": len(wsel), "s": status, "r": region, "k": skill, "p": province}
+            cur.execute("""
+                SELECT team, max(region) region, max(province) province, max(skill) skill, max(manager) manager,
+                       avg(pdt_day_avg) pdt, avg(man_hour_day) mhd, count(*) days
+                FROM work_load
+                WHERE source_month = ANY(%(ms)s)
+                  AND (%(wlen)s = 0 OR flag_wk = ANY(%(wl)s)) AND (%(s)s='' OR status_team=%(s)s)
+                  AND (%(r)s='' OR region=%(r)s) AND (%(k)s='' OR skill=%(k)s)
+                  AND (%(p)s='' OR province=%(p)s) AND skill IN ('OFC','NODE')
+                GROUP BY team
+            """, params)
+            wl = cur.fetchall()
+            wlmap = {r["team"]: r for r in wl}
+            thr = lambda sk: 2.7 if sk == "OFC" else 3.5
+
+            def base(r):
+                return {"team": r["team"], "name": nm(r["team"]), "region": r["region"],
+                        "province": r["province"], "skill": r["skill"], "manager": r["manager"], "days": r["days"]}
+            panel1 = sorted([{**base(r), "pdt": round(r["pdt"], 3), "threshold": thr(r["skill"])}
+                             for r in wl if r["pdt"] is not None and r["pdt"] < thr(r["skill"])], key=lambda x: x["pdt"])
+            panel2 = sorted([{**base(r), "mhd": round(r["mhd"], 3)}
+                             for r in wl if r["mhd"] is not None and r["mhd"] < 9], key=lambda x: x["mhd"])
+            both = list(set(x["team"] for x in panel1) & set(x["team"] for x in panel2))
+
+            panel3, panel4 = [], []
+            yrs = sorted({int(m[:4]) for m in sel if m[:4].isdigit()})
+            wknums = sorted({int(w[2:]) for w in wsel if w.upper().startswith("WK") and w[2:].isdigit()})
+            if wknums and yrs:
+                if both:
+                    cur.execute("""SELECT team, avg(t) fa, count(*) days FROM (
+                        SELECT team, extract(epoch from min(arrived)::time) t FROM mateline_ticket_closed
+                        WHERE team = ANY(%(t)s) AND arrived IS NOT NULL
+                          AND extract(week from arrived)=ANY(%(wks)s) AND extract(isoyear from arrived)=ANY(%(yrs)s)
+                        GROUP BY team, date(arrived)) x GROUP BY team""", {"t": both, "wks": wknums, "yrs": yrs})
+                    arr = {r["team"]: r for r in cur.fetchall()}
+                    cur.execute("""SELECT team, avg(t) lc FROM (
+                        SELECT team, extract(epoch from max(completed)::time) t FROM mateline_ticket_closed
+                        WHERE team = ANY(%(t)s) AND completed IS NOT NULL
+                          AND extract(week from completed)=ANY(%(wks)s) AND extract(isoyear from completed)=ANY(%(yrs)s)
+                        GROUP BY team, date(completed)) y GROUP BY team""", {"t": both, "wks": wknums, "yrs": yrs})
+                    comp = {r["team"]: r for r in cur.fetchall()}
+
+                    def hhmm(sec):
+                        if sec is None:
+                            return None
+                        sec = int(sec)
+                        return f"{sec // 3600:02d}:{(sec % 3600) // 60:02d}"
+                    for t in both:
+                        a, c = arr.get(t), comp.get(t)
+                        fa = a["fa"] if a else None
+                        lc = c["lc"] if c else None
+                        hrs = round((lc - fa) / 3600, 2) if (fa is not None and lc is not None) else None
+                        w = wlmap[t]
+                        panel3.append({"team": t, "name": nm(t), "skill": w["skill"], "region": w["region"], "province": w["province"],
+                                       "first_arrive": hhmm(fa), "last_complete": hhmm(lc), "hours": hrs, "days": a["days"] if a else 0})
+                    panel3.sort(key=lambda x: (x["hours"] is None, -(x["hours"] or 0)))
+
+                fteams = list(wlmap.keys())
+                if fteams:
+                    cur.execute("""SELECT team, sum(point) pts, count(distinct date(completed)) days,
+                          mode() WITHIN GROUP (ORDER BY work_type) top_work
+                        FROM mateline_ticket_closed
+                        WHERE team = ANY(%(t)s) AND completed IS NOT NULL AND point IS NOT NULL
+                          AND extract(week from completed)=ANY(%(wks)s) AND extract(isoyear from completed)=ANY(%(yrs)s)
+                        GROUP BY team""", {"t": fteams, "wks": wknums, "yrs": yrs})
+                    for r in cur.fetchall():
+                        days = r["days"] or 0
+                        ppd = (r["pts"] / days) if (days and r["pts"] is not None) else None
+                        if ppd is not None and ppd > 13:
+                            w = wlmap[r["team"]]
+                            panel4.append({"team": r["team"], "name": nm(r["team"]), "skill": w["skill"], "region": w["region"],
+                                           "province": w["province"], "point_per_day": round(ppd, 2), "days": days, "top_work": r["top_work"]})
+                    panel4.sort(key=lambda x: -x["point_per_day"])
+
+            # weekly trend across the selected months (ignores the week filter) — past -> present
+            cur.execute("""SELECT source_month, flag_wk, avg(pdt_day_avg) pdt, avg(man_hour_day) mhd, count(DISTINCT team) teams
+                FROM work_load
+                WHERE source_month = ANY(%(ms)s) AND skill IN ('OFC','NODE')
+                  AND (%(s)s='' OR status_team=%(s)s) AND (%(r)s='' OR region=%(r)s)
+                  AND (%(k)s='' OR skill=%(k)s) AND (%(p)s='' OR province=%(p)s)
+                GROUP BY source_month, flag_wk
+                ORDER BY source_month, nullif(regexp_replace(flag_wk, '\\D', '', 'g'), '')::int""", params)
+            trend = [{"month": r["source_month"], "wk": r["flag_wk"], "label": f'{r["source_month"][2:]} {r["flag_wk"]}',
+                      "pdt": round(r["pdt"], 2) if r["pdt"] is not None else None,
+                      "mhd": round(r["mhd"], 2) if r["mhd"] is not None else None, "teams": r["teams"]}
+                     for r in cur.fetchall()]
+
+        return {"selected": {"months": sel, "weeks": wsel, "status": status, "region": region, "skill": skill, "province": province},
+                "options": opts, "panel1": panel1, "panel2": panel2, "panel3": panel3, "panel4": panel4, "trend": trend,
+                "counts": {"teams": len(wl), "p1": len(panel1), "p2": len(panel2), "both": len(both), "p4": len(panel4)}}
+    except Exception as e:
+        raise HTTPException(503, f"pdtpoint failed: {e}")
 
 
 @app.get("/api/diag")

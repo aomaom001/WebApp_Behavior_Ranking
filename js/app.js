@@ -93,6 +93,14 @@ Object.assign(I18N.th, {
   col_team: "ทีม", col_loc: "ภาค · จังหวัด", col_sev: "Severity", col_status: "Status",
   col_wtype: "Work Type", col_root: "Root Cause", col_sla: "SLA", col_site: "Site",
   err_title: "โหลดข้อมูลไม่สำเร็จ", err_body: "ต้องเปิดผ่าน web server ไม่ใช่เปิดไฟล์ตรง ๆ ดูวิธีรันในไฟล์ README (เช่น npm run dev)",
+  pdt_nav: "PDT & Point", pdt_nav_d: "PDT/Day · Man Hour/Day · Point",
+  pdt_month: "เดือน", pdt_week: "Week", pdt_allweeks: "ทุก Week",
+  pdt_t1: "PDT/Day ไม่ผ่านเกณฑ์ (OFC<2.7 · NODE<3.5)", pdt_t2: "Man Hour/Day ไม่ผ่าน (<9)",
+  pdt_t3: "เวลาทำงาน — ทีมไม่ผ่านทั้ง 2 เงื่อนไข", pdt_t4: "Point/Day เกินมาตรฐาน (>13)",
+  pdt_pickweek: "เลือก Week ก่อน เพื่อดูแผงนี้", pdt_none: "ไม่มีทีมที่เข้าเงื่อนไข",
+  pdt_th_pdt: "PDT/Day", pdt_th_mhd: "MH/Day", pdt_th_first: "Arrived แรก", pdt_th_last: "Completed สุด",
+  pdt_th_hours: "ชม.ทำงาน", pdt_th_ptday: "Point/วัน", pdt_th_days: "วัน", pdt_th_work: "งานหลัก",
+  pdt_trend: "แนวโน้มรายสัปดาห์ (อดีต → ปัจจุบัน)",
 });
 Object.assign(I18N.en, {
   drill_hint: "Click to list records", drill_title: "Drill-down records", drill_loading: "Loading detail…",
@@ -101,6 +109,14 @@ Object.assign(I18N.en, {
   col_team: "Team", col_loc: "Region · Province", col_sev: "Severity", col_status: "Status",
   col_wtype: "Work Type", col_root: "Root Cause", col_sla: "SLA", col_site: "Site",
   err_title: "Couldn't load data", err_body: "Open it through a web server, not by opening the file directly. See the README (e.g. npm run dev).",
+  pdt_nav: "PDT & Point", pdt_nav_d: "PDT/Day · Man Hour/Day · Point",
+  pdt_month: "Month", pdt_week: "Week", pdt_allweeks: "All weeks",
+  pdt_t1: "PDT/Day below baseline (OFC<2.7 · NODE<3.5)", pdt_t2: "Man Hour/Day below 9",
+  pdt_t3: "Working hours — teams failing both", pdt_t4: "Point/Day over standard (>13)",
+  pdt_pickweek: "Pick a Week to see this panel", pdt_none: "No teams match",
+  pdt_th_pdt: "PDT/Day", pdt_th_mhd: "MH/Day", pdt_th_first: "First arrived", pdt_th_last: "Last completed",
+  pdt_th_hours: "Work hrs", pdt_th_ptday: "Point/day", pdt_th_days: "Days", pdt_th_work: "Top work",
+  pdt_trend: "Weekly trend (past → present)",
 });
 function t(k, vars) {
   let s = (I18N[LANG] && I18N[LANG][k]) != null ? I18N[LANG][k] : k;
@@ -142,7 +158,10 @@ function boot(DATA) {
     months: [Math.max(0, lastM - 2), Math.max(0, lastM - 1), lastM].filter((v, i, a) => a.indexOf(v) === i),
     minWO: 20, sel: null, search: "", sortKey: "rank", sortDir: "asc",
     dim: Object.keys(DIMS)[0] || "sevT",
+    view: "dup",
+    pdt: { months: [], weeks: [], status: "", region: "", skill: "", province: "" },
   };
+  let pdtData = null;
   let lastRows = [], refocusKey = null, bdOtherKeys = [], drillState = null;
   const detailCache = {};
 
@@ -569,9 +588,124 @@ function boot(DATA) {
 
   /* ---------- tabs / chips / selectors ---------- */
   function renderNav() {
-    $("behNav").innerHTML = BEH.map((b) =>
-      `<button type="button" role="tab" class="navitem" data-k="${b.k}" aria-selected="${b.k === S.beh}">` +
+    let h = BEH.map((b) =>
+      `<button type="button" role="tab" class="navitem" data-view="dup" data-k="${b.k}" aria-selected="${S.view === "dup" && b.k === S.beh}">` +
       `${icon("i-alert")}<span class="txt"><span class="nm">${behName(b)}</span><span class="d">${behDesc(b)}</span></span></button>`).join("");
+    h += `<button type="button" role="tab" class="navitem" data-view="pdtpoint" aria-selected="${S.view === "pdtpoint"}">` +
+      `${icon("i-layers")}<span class="txt"><span class="nm">${t("pdt_nav")}</span><span class="d">${t("pdt_nav_d")}</span></span></button>`;
+    $("behNav").innerHTML = h;
+  }
+
+  /* ---------- PDT & Point view ---------- */
+  function pdtParams() {
+    const p = new URLSearchParams();
+    if (S.pdt.months.length) p.set("months", S.pdt.months.join(","));
+    if (S.pdt.weeks.length) p.set("weeks", S.pdt.weeks.join(","));
+    ["status", "region", "skill", "province"].forEach((k) => { if (S.pdt[k]) p.set(k, S.pdt[k]); });
+    return p.toString();
+  }
+  function loadPdt() {
+    const load = `<div class="hintbox">${icon("i-info")}${t("drill_loading")}</div>`;
+    ["pdtP1", "pdtP2", "pdtP3", "pdtP4"].forEach((id) => { $(id).innerHTML = load; });
+    return fetch("api/pdtpoint?" + pdtParams()).then((r) => { if (!r.ok) throw new Error("api " + r.status); return r.json(); })
+      .then((d) => { pdtData = d; S.pdt.months = d.selected.months; S.pdt.weeks = d.selected.weeks; renderPdt(); writeURL(); })
+      .catch((e) => { $("pdtP1").innerHTML = `<div class="hintbox">${icon("i-alert")}${esc(String(e))}</div>`; });
+  }
+  function pdtFilters() {
+    const o = pdtData.options, S0 = S.pdt;
+    const sel = (key, label, vals, all, withAll) =>
+      `<div class="cgroup"><span class="cgroup-title">${esc(label)}</span><div class="cgroup-body">` +
+      `<select class="pdt-f" data-k="${key}">${withAll ? `<option value="">${esc(all)}</option>` : ""}` +
+      vals.map((v) => `<option${S0[key] === v ? " selected" : ""}>${esc(v)}</option>`).join("") + "</select></div></div>";
+    const chips = (cls, key, label, vals, fmt) => `<div class="cgroup cgroup-grow"><span class="cgroup-title">${esc(label)}</span>` +
+      `<div class="cgroup-body cgroup-months"><div class="month-chips">` +
+      vals.map((v) => `<button type="button" class="mchip ${cls}" data-v="${esc(v)}" aria-pressed="${S0[key].includes(v)}">${esc(fmt ? fmt(v) : v)}</button>`).join("") +
+      `</div></div></div>`;
+    $("pdtFilters").innerHTML =
+      chips("pdt-mchip", "months", t("pdt_month"), o.months, monthLbl) +
+      chips("pdt-wchip", "weeks", t("pdt_week"), o.weeks, null) +
+      sel("status", "Status", o.statuses, t("q_all"), true) +
+      sel("region", t("lvl_region"), o.regions, t("region_all"), true) +
+      sel("skill", "Skill", o.skills, t("q_all"), true) +
+      sel("province", t("lvl_prov"), o.provinces, t("prov_all"), true);
+  }
+  function pdtTable(cols, rows, emptyMsg) {
+    if (!rows || !rows.length) return `<div class="hintbox">${icon("i-filter")}${emptyMsg || t("pdt_none")}</div>`;
+    const head = `<tr><th class="l">#</th>${cols.map((c) => `<th class="${c.cls || ""}">${esc(c.label)}</th>`).join("")}</tr>`;
+    const body = rows.slice(0, 200).map((r, i) =>
+      `<tr><td class="l"><span class="rk ${i < 3 ? "top rk-" + (i + 1) : ""}">${i + 1}</span></td>` +
+      cols.map((c) => `<td class="${c.cls || ""}">${c.get(r)}</td>`).join("") + "</tr>").join("");
+    return `<div class="tablewrap" style="max-height:420px"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+  }
+  function renderPdt() {
+    if (!pdtData) return;
+    pdtFilters();
+    $("pdtFilters").querySelectorAll(".pdt-f").forEach((s) => { s.value = S.pdt[s.dataset.k] || ""; });
+    $("pdtT1").textContent = t("pdt_t1"); $("pdtT2").textContent = t("pdt_t2");
+    $("pdtT3").textContent = t("pdt_t3"); $("pdtT4").textContent = t("pdt_t4");
+    const nameCell = (r) => `<div class="namecell"><span class="nm" lang="en" title="${esc(r.team)}">${esc(r.name)}</span><small>${esc(r.region)} · ${esc(r.province)} · ${esc(r.skill)}</small></div>`;
+    const c = pdtData.counts;
+    $("pdtC1").innerHTML = `<b>${c.p1}</b> ${t("units")}`;
+    $("pdtC2").innerHTML = `<b>${c.p2}</b> ${t("units")}`;
+    $("pdtC3").innerHTML = `<b>${(pdtData.panel3 || []).length}</b> ${t("units")}`;
+    $("pdtC4").innerHTML = `<b>${c.p4}</b> ${t("units")}`;
+    $("pdtP1").innerHTML = pdtTable([
+      { label: t("th_name"), cls: "l", get: nameCell },
+      { label: t("pdt_th_pdt"), cls: "tnum", get: (r) => `<b class="up">${r.pdt}</b> <small class="muted-dash">/ ${r.threshold}</small>` },
+      { label: t("pdt_th_days"), cls: "tnum", get: (r) => r.days },
+    ], pdtData.panel1);
+    $("pdtP2").innerHTML = pdtTable([
+      { label: t("th_name"), cls: "l", get: nameCell },
+      { label: t("pdt_th_mhd"), cls: "tnum", get: (r) => `<b class="up">${r.mhd}</b>` },
+      { label: t("pdt_th_days"), cls: "tnum", get: (r) => r.days },
+    ], pdtData.panel2);
+    const weekMsg = S.pdt.weeks.length ? t("pdt_none") : t("pdt_pickweek");
+    $("pdtP3").innerHTML = pdtTable([
+      { label: t("th_name"), cls: "l", get: nameCell },
+      { label: t("pdt_th_first"), cls: "tnum", get: (r) => r.first_arrive || "—" },
+      { label: t("pdt_th_last"), cls: "tnum", get: (r) => r.last_complete || "—" },
+      { label: t("pdt_th_hours"), cls: "tnum", get: (r) => r.hours == null ? "—" : `<b>${r.hours}</b>` },
+      { label: t("pdt_th_days"), cls: "tnum", get: (r) => r.days },
+    ], pdtData.panel3, weekMsg);
+    $("pdtP4").innerHTML = pdtTable([
+      { label: t("th_name"), cls: "l", get: nameCell },
+      { label: t("pdt_th_ptday"), cls: "tnum", get: (r) => `<b class="up">${r.point_per_day}</b>` },
+      { label: t("pdt_th_days"), cls: "tnum", get: (r) => r.days },
+      { label: t("pdt_th_work"), cls: "l", get: (r) => `<span lang="en">${esc(r.top_work || "—")}</span>` },
+    ], pdtData.panel4, weekMsg);
+    pdtTrend();
+  }
+  function pdtTrend() {
+    const tr = pdtData.trend || [], svg = $("pdtTrendSvg");
+    $("pdtTT").textContent = t("pdt_trend");
+    $("pdtTC").innerHTML = `<b>${tr.length}</b> Week`;
+    if (tr.length < 2) { svg.innerHTML = ""; $("pdtTrendLeg").innerHTML = `<span class="muted">${t("pdt_none")}</span>`; return; }
+    const W = svg.clientWidth || 760, H = svg.clientHeight || 240, cs = getComputedStyle(document.documentElement);
+    const grid = cs.getPropertyValue("--chart-grid").trim(), axis = cs.getPropertyValue("--chart-axis").trim();
+    const accent = cs.getPropertyValue("--accent").trim(), bad = cs.getPropertyValue("--bad").trim();
+    const pad = { l: 40, r: 14, t: 12, b: 50 }, n = tr.length - 1 || 1;
+    const vals = tr.flatMap((d) => [d.pdt, d.mhd]).filter((v) => v != null);
+    const mx = Math.max(0.001, ...vals), mn = 0;
+    const x = (i) => pad.l + (W - pad.l - pad.r) * (i / n);
+    const y = (v) => pad.t + (H - pad.t - pad.b) * (1 - (v - mn) / (mx - mn));
+    const wkNum = (w) => (String(w).match(/\d+/) || [w])[0];
+    let h = "";
+    for (let g = 0; g <= 4; g++) { const v = mn + (mx - mn) * g / 4, yy = y(v); h += `<line x1="${pad.l}" y1="${yy}" x2="${W - pad.r}" y2="${yy}" stroke="${grid}"/><text x="${pad.l - 6}" y="${yy + 3}" fill="${axis}" font-size="10" text-anchor="end">${v.toFixed(1)}</text>`; }
+    // small week ticks (left→right = past→present); thinned out when crowded
+    const step = Math.ceil(tr.length / 18);
+    tr.forEach((d, i) => { if (i % step === 0 || i === tr.length - 1) { const xx = x(i); h += `<text x="${xx}" y="${H - 30}" fill="${axis}" font-size="8.5" text-anchor="middle">W${esc(wkNum(d.wk))}</text>`; } });
+    // month boundaries: faint separator + centred month label so chronology reads clearly across the year reset
+    let gs = 0;
+    for (let i = 1; i <= tr.length; i++) {
+      if (i === tr.length || tr[i].month !== tr[gs].month) {
+        if (i < tr.length) { const bx = (x(i - 1) + x(i)) / 2; h += `<line x1="${bx}" y1="${pad.t}" x2="${bx}" y2="${H - pad.b}" stroke="${grid}" stroke-dasharray="3 3"/>`; }
+        const cx = (x(gs) + x(i - 1)) / 2; h += `<text x="${cx}" y="${H - 12}" fill="${axis}" font-size="10" font-weight="600" text-anchor="middle">${esc(String(tr[gs].month).slice(2))}</text>`;
+        gs = i;
+      }
+    }
+    const line = (key, col) => { let d = ""; tr.forEach((p, i) => { if (p[key] == null) return; d += (d ? "L" : "M") + x(i).toFixed(1) + " " + y(p[key]).toFixed(1) + " "; }); let dots = ""; tr.forEach((p, i) => { if (p[key] == null) return; dots += `<circle cx="${x(i).toFixed(1)}" cy="${y(p[key]).toFixed(1)}" r="2.4" fill="${col}"><title>${esc(p.label)} — ${key.toUpperCase()}: ${p[key]}</title></circle>`; }); return `<path d="${d}" fill="none" stroke="${col}" stroke-width="2"/>${dots}`; };
+    svg.innerHTML = h + line("pdt", accent) + line("mhd", bad);
+    $("pdtTrendLeg").innerHTML = `<span><span class="dot" style="background:${accent}"></span>${t("pdt_th_pdt")}</span><span><span class="dot" style="background:${bad}"></span>Man Hour/Day</span>`;
   }
   function renderMonthChips() {
     $("monthChips").innerHTML = DATA.months.map((m, i) => `<button type="button" class="mchip" data-mi="${i}" aria-pressed="${S.months.includes(i)}">${monthLbl(m)}</button>`).join("");
@@ -589,6 +723,12 @@ function boot(DATA) {
 
   /* ---------- master render ---------- */
   function render() {
+    const isPdt = S.view === "pdtpoint";
+    $("dupView").hidden = isPdt;
+    $("pdtView").hidden = !isPdt;
+    $("behNav").querySelectorAll(".navitem").forEach((el) =>
+      el.setAttribute("aria-selected", String(el.dataset.view === "pdtpoint" ? isPdt : (!isPdt && el.dataset.k === S.beh))));
+    if (isPdt) { pdtData ? renderPdt() : loadPdt(); writeURL(); return; }
     try {
       const b = BEH.find((x) => x.k === S.beh), lvlTxt = t("lvl_" + S.level);
       $("rankTitle").textContent = t("rank_title", { beh: behName(b), lvl: lvlTxt });
@@ -620,6 +760,12 @@ function boot(DATA) {
   function writeURL() {
     try {
       const p = new URLSearchParams();
+      p.set("view", S.view);
+      if (S.view === "pdtpoint") {
+        if (S.pdt.months.length) p.set("pdt_months", S.pdt.months.join(","));
+        if (S.pdt.weeks.length) p.set("pdt_weeks", S.pdt.weeks.join(","));
+        ["status", "region", "skill", "province"].forEach((k) => { if (S.pdt[k]) p.set("pdt_" + k, S.pdt[k]); });
+      }
       p.set("beh", S.beh); p.set("skill", S.skill); p.set("level", S.level);
       if (S.region) p.set("region", S.region); if (S.prov) p.set("prov", S.prov);
       p.set("ms", S.months.join(",")); p.set("minWO", S.minWO);
@@ -643,6 +789,10 @@ function boot(DATA) {
     if (DIMS[p.get("dim")]) S.dim = p.get("dim");
     if (p.has("sel")) S.sel = p.get("sel");
     if (p.has("q")) S.search = p.get("q");
+    if (p.get("view") === "pdtpoint") S.view = "pdtpoint";
+    if (p.has("pdt_months")) S.pdt.months = p.get("pdt_months").split(",").filter(Boolean);
+    if (p.has("pdt_weeks")) S.pdt.weeks = p.get("pdt_weeks").split(",").filter(Boolean);
+    ["status", "region", "skill", "province"].forEach((k) => { if (p.has("pdt_" + k)) S.pdt[k] = p.get("pdt_" + k); });
   }
 
   /* ---------- CSV (multi-month) ---------- */
@@ -721,11 +871,18 @@ function boot(DATA) {
   /* ---------- events ---------- */
   $("skillSeg").querySelectorAll("button").forEach((b) => b.onclick = () => { S.skill = b.dataset.v; S.region = ""; S.prov = ""; S.sel = null; render(); });
   $("levelSeg").querySelectorAll("button").forEach((b) => b.onclick = () => { S.level = b.dataset.v; S.sel = null; render(); });
-  $("behNav").addEventListener("click", (e) => { const x = e.target.closest(".navitem"); if (x) { S.beh = x.dataset.k; render(); } });
+  const navSelect = (el) => { if (el.dataset.view === "pdtpoint") S.view = "pdtpoint"; else { S.view = "dup"; S.beh = el.dataset.k; } render(); };
+  $("behNav").addEventListener("click", (e) => { const x = e.target.closest(".navitem"); if (x) navSelect(x); });
   $("behNav").addEventListener("keydown", (e) => {
     const items = [...$("behNav").querySelectorAll(".navitem")], i = items.indexOf(document.activeElement); if (i < 0) return;
     let n = -1; if (e.key === "ArrowDown" || e.key === "ArrowRight") n = (i + 1) % items.length; else if (e.key === "ArrowUp" || e.key === "ArrowLeft") n = (i - 1 + items.length) % items.length;
-    if (n >= 0) { e.preventDefault(); items[n].focus(); S.beh = items[n].dataset.k; render(); }
+    if (n >= 0) { e.preventDefault(); items[n].focus(); navSelect(items[n]); }
+  });
+  $("pdtFilters").addEventListener("change", (e) => { const s = e.target.closest(".pdt-f"); if (s) { S.pdt[s.dataset.k] = s.value; loadPdt(); } });
+  $("pdtFilters").addEventListener("click", (e) => {
+    const toggle = (arr, v) => { const i = arr.indexOf(v); if (i >= 0) arr.splice(i, 1); else arr.push(v); };
+    const mc = e.target.closest(".pdt-mchip"); if (mc) { toggle(S.pdt.months, mc.dataset.v); loadPdt(); return; }
+    const wc = e.target.closest(".pdt-wchip"); if (wc) { toggle(S.pdt.weeks, wc.dataset.v); loadPdt(); }
   });
   $("monthChips").addEventListener("click", (e) => {
     const c = e.target.closest(".mchip"); if (!c) return;

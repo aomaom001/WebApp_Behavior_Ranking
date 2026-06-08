@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css?v=3">
+<link rel="stylesheet" href="css/styles.css?v=6">
 <script>
   (function () {
     try {
@@ -80,6 +80,7 @@
     <nav id="behNav" role="tablist" aria-label="เงื่อนไขจับผิด"></nav>
   </aside>
   <main id="main">
+  <div id="dupView">
 
   <div class="controls" role="group" aria-label="filters">
     <div class="cgroup">
@@ -190,6 +191,19 @@
     <div id="bdContent"></div>
   </section>
 
+  </div><!-- /dupView -->
+
+  <section id="pdtView" hidden>
+    <div class="controls" id="pdtFilters" role="group" aria-label="PDT filters"></div>
+    <div class="pdt-top">
+      <section class="panel" aria-labelledby="pdtT1"><div class="panel-head"><h2 id="pdtT1"></h2><div class="rowcount" id="pdtC1" aria-live="polite"></div></div><div id="pdtP1"></div></section>
+      <section class="panel" aria-labelledby="pdtT2"><div class="panel-head"><h2 id="pdtT2"></h2><div class="rowcount" id="pdtC2" aria-live="polite"></div></div><div id="pdtP2"></div></section>
+    </div>
+    <section class="panel" aria-labelledby="pdtT3"><div class="panel-head"><h2 id="pdtT3"></h2><div class="rowcount" id="pdtC3" aria-live="polite"></div></div><div id="pdtP3"></div></section>
+    <section class="panel" aria-labelledby="pdtT4"><div class="panel-head"><h2 id="pdtT4"></h2><div class="rowcount" id="pdtC4" aria-live="polite"></div></div><div id="pdtP4"></div></section>
+    <section class="panel" aria-labelledby="pdtTT"><div class="panel-head"><h2 id="pdtTT"></h2><div class="rowcount" id="pdtTC" aria-live="polite"></div></div><div class="chartbox" style="height:240px"><svg id="pdtTrendSvg" role="img" width="100%" height="240" preserveAspectRatio="none"></svg></div><div class="legend" id="pdtTrendLeg"></div></section>
+  </section>
+
   <footer class="foot" id="foot"></footer>
   </main>
   </div>
@@ -218,6 +232,6 @@
   <div class="dialog-body" id="drillBody"></div>
 </dialog>
 
-<script src="js/app.js?v=3"></script>
+<script src="js/app.js?v=6"></script>
 </body>
 </html>
