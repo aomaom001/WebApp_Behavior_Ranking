@@ -292,6 +292,101 @@ def pdtpoint(months: str = "", weeks: str = "", status: str = "", region: str = 
         raise HTTPException(503, f"pdtpoint failed: {e}")
 
 
+@app.get("/api/pdtdetail")
+def pdtdetail(team: str, panel: int, months: str = "", weeks: str = ""):
+    """Why did this team fail the chosen PDT & Point condition? Returns the team's averages
+    vs thresholds plus the day-by-day evidence behind the verdict.
+    panel 1=PDT/Day baseline, 2=Man Hour/Day<9, 3=working hours (both), 4=Point/Day>13."""
+    nm = agg_core.parse_name
+    rnd = lambda v, n=2: round(v, n) if v is not None else None
+    try:
+        with _connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT DISTINCT source_month m FROM work_load WHERE source_month IS NOT NULL ORDER BY 1")
+            allmonths = [r["m"] for r in cur.fetchall()]
+            sel = [m for m in months.split(",") if m in allmonths] or allmonths[-1:]
+            cur.execute("SELECT w FROM (SELECT DISTINCT flag_wk w FROM work_load "
+                        "WHERE source_month = ANY(%s) AND flag_wk IS NOT NULL) t "
+                        "ORDER BY nullif(regexp_replace(w, '\\D', '', 'g'), '')::int", (sel,))
+            allweeks = [r["w"] for r in cur.fetchall()]
+            wsel = [w for w in weeks.split(",") if w in allweeks]
+            wknums = sorted({int(w[2:]) for w in wsel if w.upper().startswith("WK") and w[2:].isdigit()})
+            yrs = sorted({int(m[:4]) for m in sel if m[:4].isdigit()})
+
+            wp = {"t": team, "ms": sel, "wl": wsel, "wlen": len(wsel)}
+            cur.execute("""SELECT max(region) region, max(province) province, max(skill) skill, max(manager) manager,
+                              avg(pdt_day_avg) pdt, avg(man_hour_day) mhd, sum(man_hour) man_hour,
+                              avg(work_days) work_days, count(*) days
+                           FROM work_load
+                           WHERE team=%(t)s AND source_month=ANY(%(ms)s)
+                             AND (%(wlen)s=0 OR flag_wk=ANY(%(wl)s)) AND skill IN ('OFC','NODE')""", wp)
+            m = cur.fetchone() or {}
+            sk = m.get("skill")
+            pdt_thr = 2.7 if sk == "OFC" else 3.5
+            meta = {"team": team, "name": nm(team), "skill": sk,
+                    "region": m.get("region"), "province": m.get("province"), "manager": m.get("manager"),
+                    "pdt": rnd(m.get("pdt"), 3), "mhd": rnd(m.get("mhd"), 3),
+                    "man_hour": rnd(m.get("man_hour")), "work_days": rnd(m.get("work_days")),
+                    "days": m.get("days") or 0, "pdt_threshold": pdt_thr, "mhd_threshold": 9, "point_std": 13,
+                    "months": sel, "weeks": wsel}
+
+            daily_wl = []
+            if panel in (1, 2, 3):
+                cur.execute("""SELECT date, flag_wk, pdt_day_avg, man_hour, man_hour_day, work_days,
+                                  dispatched, completed, closed_leaved, pct_closed
+                               FROM work_load
+                               WHERE team=%(t)s AND source_month=ANY(%(ms)s)
+                                 AND (%(wlen)s=0 OR flag_wk=ANY(%(wl)s)) AND skill IN ('OFC','NODE')
+                               ORDER BY date""", wp)
+                for r in cur.fetchall():
+                    daily_wl.append({
+                        "date": r["date"].strftime("%Y-%m-%d") if r["date"] else None, "wk": r["flag_wk"],
+                        "pdt": rnd(r["pdt_day_avg"]), "man_hour": rnd(r["man_hour"]), "mhd": rnd(r["man_hour_day"]),
+                        "work_days": rnd(r["work_days"]), "dispatched": rnd(r["dispatched"]),
+                        "completed": rnd(r["completed"]), "closed": rnd(r["closed_leaved"]), "pct_closed": rnd(r["pct_closed"])})
+
+            daily_ml, worktypes, ml = [], [], {}
+            if panel in (3, 4) and wknums and yrs:
+                mp = {"t": team, "wks": wknums, "yrs": yrs}
+                if panel == 3:
+                    cur.execute("""SELECT date(arrived) d, min(arrived) fa, max(completed) lc, count(*) wo
+                                   FROM mateline_ticket_closed
+                                   WHERE team=%(t)s AND arrived IS NOT NULL
+                                     AND extract(week from arrived)=ANY(%(wks)s) AND extract(isoyear from arrived)=ANY(%(yrs)s)
+                                   GROUP BY date(arrived) ORDER BY d""", mp)
+                    for r in cur.fetchall():
+                        fa, lc = r["fa"], r["lc"]
+                        span = rnd((lc - fa).total_seconds() / 3600) if (fa and lc) else None
+                        daily_ml.append({"date": r["d"].strftime("%Y-%m-%d") if r["d"] else None,
+                                         "first_arrive": fa.strftime("%H:%M") if fa else None,
+                                         "last_complete": lc.strftime("%H:%M") if lc else None,
+                                         "span": span, "wo": r["wo"]})
+                    spans = [x["span"] for x in daily_ml if x["span"] is not None]
+                    ml = {"avg_span": rnd(sum(spans) / len(spans)) if spans else None, "day_count": len(daily_ml)}
+                elif panel == 4:
+                    cur.execute("""SELECT date(completed) d, count(*) wo, sum(point) pts
+                                   FROM mateline_ticket_closed
+                                   WHERE team=%(t)s AND completed IS NOT NULL AND point IS NOT NULL
+                                     AND extract(week from completed)=ANY(%(wks)s) AND extract(isoyear from completed)=ANY(%(yrs)s)
+                                   GROUP BY date(completed) ORDER BY d""", mp)
+                    for r in cur.fetchall():
+                        daily_ml.append({"date": r["d"].strftime("%Y-%m-%d") if r["d"] else None,
+                                         "wo": r["wo"], "points": rnd(r["pts"])})
+                    cur.execute("""SELECT coalesce(work_type,'—') work_type, count(*) n, sum(point) pts
+                                   FROM mateline_ticket_closed
+                                   WHERE team=%(t)s AND completed IS NOT NULL AND point IS NOT NULL
+                                     AND extract(week from completed)=ANY(%(wks)s) AND extract(isoyear from completed)=ANY(%(yrs)s)
+                                   GROUP BY work_type ORDER BY sum(point) DESC NULLS LAST""", mp)
+                    worktypes = [{"work_type": r["work_type"], "n": r["n"], "points": rnd(r["pts"])} for r in cur.fetchall()]
+                    tp = sum((w["points"] or 0) for w in worktypes)
+                    pdays = len(daily_ml)
+                    ml = {"total_points": rnd(tp), "point_days": pdays,
+                          "point_per_day": rnd(tp / pdays) if pdays else None}
+
+        return {"meta": meta, "panel": panel, "daily_wl": daily_wl, "daily_ml": daily_ml, "worktypes": worktypes, "ml": ml}
+    except Exception as e:
+        raise HTTPException(503, f"pdtdetail failed: {e}")
+
+
 @app.get("/api/diag")
 def diag():
     """Verify the table is reachable, column names match, and the month split works —

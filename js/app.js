@@ -101,6 +101,20 @@ Object.assign(I18N.th, {
   pdt_th_pdt: "PDT/Day", pdt_th_mhd: "MH/Day", pdt_th_first: "Arrived แรก", pdt_th_last: "Completed สุด",
   pdt_th_hours: "ชม.ทำงาน", pdt_th_ptday: "Point/วัน", pdt_th_days: "วัน", pdt_th_work: "งานหลัก",
   pdt_trend: "แนวโน้มรายสัปดาห์ (อดีต → ปัจจุบัน)",
+  pdtd_hint: "คลิกเพื่อดูเหตุผลเชิงลึก",
+  pdtd_verdict: "ผลตรวจ", pdtd_reasons: "ทำไมทีมนี้ถึงถูกชี้เป้า", pdtd_evidence: "หลักฐานรายวัน",
+  pdtd_worktypes: "ประเภทงานที่ดัน Point", pdtd_baseline: "เกณฑ์", pdtd_avg: "ค่าเฉลี่ย",
+  pdtd_gap: "ห่างจากเกณฑ์", pdtd_below_n: "{n} วันต่ำกว่าเกณฑ์", pdtd_over_n: "{n} วันเกินเกณฑ์",
+  pdtd_fail: "ไม่ผ่าน", pdtd_pass: "ผ่าน", pdtd_flag: "ถูกชี้เป้า", pdtd_th_date: "วันที่", pdtd_th_wk: "Week",
+  pdtd_th_wd: "วันทำงาน", pdtd_th_disp: "จ่ายงาน", pdtd_th_comp: "ปิดงาน", pdtd_th_span: "ช่วงเวลาทำงาน",
+  pdtd_th_wo: "ใบงาน", pdtd_th_pts: "Point", pdtd_th_share: "สัดส่วน", pdtd_th_mh: "Man Hour",
+  pdtd_noml: "ต้องเลือก Week จึงจะดูหลักฐานจากข้อมูล MATELINE ได้",
+  pdtd_r_pdt: "PDT/Day เฉลี่ย {v} ต่ำกว่าเกณฑ์ {sk} ที่ {thr} อยู่ {gap} ตลอด {days} วันทำงาน",
+  pdtd_r_mhd: "Man Hour/Day เฉลี่ย {v} ต่ำกว่าเกณฑ์ขั้นต่ำ 9 อยู่ {gap} ตลอด {days} วันทำงาน",
+  pdtd_r_both: "ไม่ผ่านทั้ง PDT/Day ({pdt}) และ Man Hour/Day ({mhd}) จึงถูกดึงมาดูรูปแบบเวลาทำงาน",
+  pdtd_r_span: "ช่วงเวลาทำงานเฉลี่ย {span} ชม./วัน (Arrived แรก → Completed สุด) จาก {days} วัน",
+  pdtd_r_ppd: "Point/Day เฉลี่ย {v} สูงกว่ามาตรฐาน 13 อยู่ {gap} จาก {pts} point ใน {days} วัน",
+  pdtd_r_topwork: "งาน \"{w}\" คิดเป็น {share} ของ point ทั้งหมด",
 });
 Object.assign(I18N.en, {
   drill_hint: "Click to list records", drill_title: "Drill-down records", drill_loading: "Loading detail…",
@@ -117,6 +131,20 @@ Object.assign(I18N.en, {
   pdt_th_pdt: "PDT/Day", pdt_th_mhd: "MH/Day", pdt_th_first: "First arrived", pdt_th_last: "Last completed",
   pdt_th_hours: "Work hrs", pdt_th_ptday: "Point/day", pdt_th_days: "Days", pdt_th_work: "Top work",
   pdt_trend: "Weekly trend (past → present)",
+  pdtd_hint: "Click for the full reason",
+  pdtd_verdict: "Verdict", pdtd_reasons: "Why this team is flagged", pdtd_evidence: "Daily evidence",
+  pdtd_worktypes: "Work types driving the points", pdtd_baseline: "Baseline", pdtd_avg: "Average",
+  pdtd_gap: "Gap to baseline", pdtd_below_n: "{n} days below baseline", pdtd_over_n: "{n} days over standard",
+  pdtd_fail: "Fail", pdtd_pass: "Pass", pdtd_flag: "Flagged", pdtd_th_date: "Date", pdtd_th_wk: "Week",
+  pdtd_th_wd: "Work days", pdtd_th_disp: "Dispatched", pdtd_th_comp: "Completed", pdtd_th_span: "Working span",
+  pdtd_th_wo: "WOs", pdtd_th_pts: "Point", pdtd_th_share: "Share", pdtd_th_mh: "Man Hour",
+  pdtd_noml: "Pick a Week to load the MATELINE evidence for this team",
+  pdtd_r_pdt: "Average PDT/Day {v} is {gap} below the {sk} baseline of {thr}, across {days} work days",
+  pdtd_r_mhd: "Average Man Hour/Day {v} is {gap} below the minimum of 9, across {days} work days",
+  pdtd_r_both: "Fails both PDT/Day ({pdt}) and Man Hour/Day ({mhd}), so its working-hours pattern is examined",
+  pdtd_r_span: "Working span averages {span} hrs/day (first arrived → last completed) over {days} days",
+  pdtd_r_ppd: "Average Point/Day {v} is {gap} above the standard of 13, from {pts} points over {days} days",
+  pdtd_r_topwork: "Work type \"{w}\" accounts for {share} of all points",
 });
 function t(k, vars) {
   let s = (I18N[LANG] && I18N[LANG][k]) != null ? I18N[LANG][k] : k;
@@ -629,12 +657,14 @@ function boot(DATA) {
       sel("skill", "Skill", o.skills, t("q_all"), true) +
       sel("province", t("lvl_prov"), o.provinces, t("prov_all"), true);
   }
-  function pdtTable(cols, rows, emptyMsg) {
+  function pdtTable(cols, rows, panel, emptyMsg) {
     if (!rows || !rows.length) return `<div class="hintbox">${icon("i-filter")}${emptyMsg || t("pdt_none")}</div>`;
-    const head = `<tr><th class="l">#</th>${cols.map((c) => `<th class="${c.cls || ""}">${esc(c.label)}</th>`).join("")}</tr>`;
+    const head = `<tr><th class="l">#</th>${cols.map((c) => `<th class="${c.cls || ""}">${esc(c.label)}</th>`).join("")}<th class="pdtd-go" aria-hidden="true"></th></tr>`;
     const body = rows.slice(0, 200).map((r, i) =>
-      `<tr><td class="l"><span class="rk ${i < 3 ? "top rk-" + (i + 1) : ""}">${i + 1}</span></td>` +
-      cols.map((c) => `<td class="${c.cls || ""}">${c.get(r)}</td>`).join("") + "</tr>").join("");
+      `<tr class="pdtd-row" data-team="${esc(r.team)}" data-panel="${panel}" tabindex="0" role="button" aria-label="${esc(r.name)} — ${t("pdtd_hint")}">` +
+      `<td class="l"><span class="rk ${i < 3 ? "top rk-" + (i + 1) : ""}">${i + 1}</span></td>` +
+      cols.map((c) => `<td class="${c.cls || ""}">${c.get(r)}</td>`).join("") +
+      `<td class="pdtd-go" aria-hidden="true">${icon("i-chev")}</td></tr>`).join("");
     return `<div class="tablewrap" style="max-height:420px"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
   }
   function renderPdt() {
@@ -653,12 +683,12 @@ function boot(DATA) {
       { label: t("th_name"), cls: "l", get: nameCell },
       { label: t("pdt_th_pdt"), cls: "tnum", get: (r) => `<b class="up">${r.pdt}</b> <small class="muted-dash">/ ${r.threshold}</small>` },
       { label: t("pdt_th_days"), cls: "tnum", get: (r) => r.days },
-    ], pdtData.panel1);
+    ], pdtData.panel1, 1);
     $("pdtP2").innerHTML = pdtTable([
       { label: t("th_name"), cls: "l", get: nameCell },
       { label: t("pdt_th_mhd"), cls: "tnum", get: (r) => `<b class="up">${r.mhd}</b>` },
       { label: t("pdt_th_days"), cls: "tnum", get: (r) => r.days },
-    ], pdtData.panel2);
+    ], pdtData.panel2, 2);
     const weekMsg = S.pdt.weeks.length ? t("pdt_none") : t("pdt_pickweek");
     $("pdtP3").innerHTML = pdtTable([
       { label: t("th_name"), cls: "l", get: nameCell },
@@ -666,13 +696,13 @@ function boot(DATA) {
       { label: t("pdt_th_last"), cls: "tnum", get: (r) => r.last_complete || "—" },
       { label: t("pdt_th_hours"), cls: "tnum", get: (r) => r.hours == null ? "—" : `<b>${r.hours}</b>` },
       { label: t("pdt_th_days"), cls: "tnum", get: (r) => r.days },
-    ], pdtData.panel3, weekMsg);
+    ], pdtData.panel3, 3, weekMsg);
     $("pdtP4").innerHTML = pdtTable([
       { label: t("th_name"), cls: "l", get: nameCell },
       { label: t("pdt_th_ptday"), cls: "tnum", get: (r) => `<b class="up">${r.point_per_day}</b>` },
       { label: t("pdt_th_days"), cls: "tnum", get: (r) => r.days },
       { label: t("pdt_th_work"), cls: "l", get: (r) => `<span lang="en">${esc(r.top_work || "—")}</span>` },
-    ], pdtData.panel4, weekMsg);
+    ], pdtData.panel4, 4, weekMsg);
     pdtTrend();
   }
   function pdtTrend() {
@@ -706,6 +736,141 @@ function boot(DATA) {
     const line = (key, col) => { let d = ""; tr.forEach((p, i) => { if (p[key] == null) return; d += (d ? "L" : "M") + x(i).toFixed(1) + " " + y(p[key]).toFixed(1) + " "; }); let dots = ""; tr.forEach((p, i) => { if (p[key] == null) return; dots += `<circle cx="${x(i).toFixed(1)}" cy="${y(p[key]).toFixed(1)}" r="2.4" fill="${col}"><title>${esc(p.label)} — ${key.toUpperCase()}: ${p[key]}</title></circle>`; }); return `<path d="${d}" fill="none" stroke="${col}" stroke-width="2"/>${dots}`; };
     svg.innerHTML = h + line("pdt", accent) + line("mhd", bad);
     $("pdtTrendLeg").innerHTML = `<span><span class="dot" style="background:${accent}"></span>${t("pdt_th_pdt")}</span><span><span class="dot" style="background:${bad}"></span>Man Hour/Day</span>`;
+  }
+  /* ---------- PDT drill-down: why did this team fail? ---------- */
+  let pdtDrillReq = 0;
+  function openPdtDrill(team, panel) {
+    const d = $("pdtDrill");
+    $("pdtDrillTitle").textContent = nameOf(team);
+    $("pdtDrillMeta").textContent = "";
+    $("pdtDrillBody").innerHTML = `<div class="hintbox">${icon("i-info")}${t("drill_loading")}</div>`;
+    if (d.showModal) { if (!d.open) d.showModal(); } else d.setAttribute("open", "");
+    const req = ++pdtDrillReq;
+    const p = new URLSearchParams({ team, panel });
+    if (S.pdt.months.length) p.set("months", S.pdt.months.join(","));
+    if (S.pdt.weeks.length) p.set("weeks", S.pdt.weeks.join(","));
+    fetch("api/pdtdetail?" + p.toString())
+      .then((r) => { if (!r.ok) throw new Error("api " + r.status); return r.json(); })
+      .then((dt) => { if (req === pdtDrillReq) renderPdtDrill(dt); })
+      .catch((e) => { if (req === pdtDrillReq) $("pdtDrillBody").innerHTML = `<div class="hintbox">${icon("i-alert")}${esc(String(e))}</div>`; });
+  }
+  // team name without the live data dependency (pdtData rows carry .name; fall back to raw code)
+  function nameOf(team) {
+    for (const k of ["panel1", "panel2", "panel3", "panel4"]) {
+      const hit = (pdtData && pdtData[k] || []).find((r) => r.team === team);
+      if (hit) return hit.name;
+    }
+    return team;
+  }
+  function pdtGauge(value, thr, over, unit, sk) {
+    if (value == null) return "";
+    const scale = Math.max(value, thr) * 1.3 || 1;
+    const vp = Math.max(3, Math.min(100, (value / scale) * 100));
+    const tp = Math.min(100, (thr / scale) * 100);
+    const gap = (over ? value - thr : thr - value);
+    return `<div class="pdtd-gauge">
+      <div class="pdtd-val"><b>${value}</b><span class="pdtd-unit">${esc(unit)}${sk ? ` · ${esc(sk)}` : ""}</span></div>
+      <div class="pdtd-track" role="img" aria-label="${esc(unit)} ${value} · ${t("pdtd_baseline")} ${thr}">
+        <div class="pdtd-fill ${over ? "over" : "under"}" style="width:${vp.toFixed(1)}%"></div>
+        <div class="pdtd-base" style="left:${tp.toFixed(1)}%"></div>
+      </div>
+      <div class="pdtd-scale"><span class="pdtd-gap ${over ? "over" : "under"}">${over ? "▲" : "▼"} ${t("pdtd_gap")} ${gap.toFixed(2)}</span><span class="pdtd-blabel">${t("pdtd_baseline")} ${thr}</span></div>
+    </div>`;
+  }
+  function pdtDTable(cols, rows, empty, rowBad) {
+    if (!rows || !rows.length) return `<div class="hintbox">${icon("i-filter")}${empty || t("pdt_none")}</div>`;
+    const head = cols.map((c) => `<th class="${c.cls || ""}">${esc(c.label)}</th>`).join("");
+    const body = rows.map((r) => `<tr class="${rowBad && rowBad(r) ? "is-bad" : ""}">` +
+      cols.map((c) => `<td class="${c.cls || ""}">${c.get(r)}</td>`).join("") + "</tr>").join("");
+    return `<div class="tablewrap" style="max-height:340px"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  }
+  function renderPdtDrill(dt) {
+    const m = dt.meta, panel = dt.panel, num = (v) => (v == null ? "—" : v);
+    $("pdtDrillTitle").textContent = m.name;
+    $("pdtDrillMeta").innerHTML = [m.region, m.province, m.skill, m.manager].filter(Boolean).map(esc).join(" · ") +
+      ` · <span lang="en">${esc(m.team)}</span>`;
+    const titleKey = { 1: "pdt_t1", 2: "pdt_t2", 3: "pdt_t3", 4: "pdt_t4" }[panel];
+
+    // 1) verdict gauge(s)
+    let gauges = "";
+    if (panel === 1) gauges = pdtGauge(m.pdt, m.pdt_threshold, false, "PDT/Day", m.skill);
+    else if (panel === 2) gauges = pdtGauge(m.mhd, 9, false, "Man Hour/Day");
+    else if (panel === 3) gauges = `<div class="pdtd-gauges">${pdtGauge(m.pdt, m.pdt_threshold, false, "PDT/Day", m.skill)}${pdtGauge(m.mhd, 9, false, "Man Hour/Day")}</div>`;
+    else if (panel === 4) gauges = dt.ml.point_per_day != null ? pdtGauge(dt.ml.point_per_day, 13, true, "Point/Day")
+      : `<div class="hintbox">${icon("i-filter")}${t("pdtd_noml")}</div>`;
+
+    // 2) reasons
+    const reasons = [];
+    if (panel === 1 && m.pdt != null) {
+      reasons.push(t("pdtd_r_pdt", { v: m.pdt, sk: m.skill, thr: m.pdt_threshold, gap: (m.pdt_threshold - m.pdt).toFixed(2), days: m.days }));
+      const below = dt.daily_wl.filter((x) => x.pdt != null && x.pdt < m.pdt_threshold).length;
+      if (below) reasons.push(t("pdtd_below_n", { n: below }));
+    } else if (panel === 2 && m.mhd != null) {
+      reasons.push(t("pdtd_r_mhd", { v: m.mhd, gap: (9 - m.mhd).toFixed(2), days: m.days }));
+      const below = dt.daily_wl.filter((x) => x.mhd != null && x.mhd < 9).length;
+      if (below) reasons.push(t("pdtd_below_n", { n: below }));
+    } else if (panel === 3) {
+      reasons.push(t("pdtd_r_both", { pdt: num(m.pdt), mhd: num(m.mhd) }));
+      if (dt.ml.avg_span != null) reasons.push(t("pdtd_r_span", { span: dt.ml.avg_span, days: dt.ml.day_count }));
+    } else if (panel === 4 && dt.ml.point_per_day != null) {
+      reasons.push(t("pdtd_r_ppd", { v: dt.ml.point_per_day, gap: (dt.ml.point_per_day - 13).toFixed(2), pts: num(dt.ml.total_points), days: dt.ml.point_days }));
+      const over = dt.daily_ml.length;
+      if (over) reasons.push(t("pdtd_over_n", { n: over }));
+      if (dt.worktypes.length) {
+        const tot = dt.worktypes.reduce((s, w) => s + (w.points || 0), 0), top = dt.worktypes[0];
+        reasons.push(t("pdtd_r_topwork", { w: top.work_type, share: tot ? Math.round((top.points / tot) * 100) + "%" : "—" }));
+      }
+    }
+
+    // 3) work-type contribution (panel 4)
+    let wt = "";
+    if (panel === 4 && dt.worktypes.length) {
+      const tot = dt.worktypes.reduce((s, w) => s + (w.points || 0), 0) || 1;
+      wt = `<section class="pdtd-block"><h3 class="pdtd-h">${t("pdtd_worktypes")}</h3>` + pdtDTable([
+        { label: t("pdt_th_work"), cls: "l", get: (r) => `<span lang="en">${esc(r.work_type)}</span>` },
+        { label: t("pdtd_th_wo"), cls: "tnum", get: (r) => r.n },
+        { label: t("pdtd_th_pts"), cls: "tnum", get: (r) => `<b>${num(r.points)}</b>` },
+        { label: t("pdtd_th_share"), cls: "", get: (r) => { const pct = Math.round(((r.points || 0) / tot) * 100); return `<div class="pdtd-share"><div class="pdtd-sharebar" style="width:${pct}%"></div><span>${pct}%</span></div>`; } },
+      ], dt.worktypes) + `</section>`;
+    }
+
+    // 4) daily evidence
+    let ev;
+    if (panel === 1) ev = pdtDTable([
+      { label: t("pdtd_th_date"), cls: "l tnum", get: (r) => r.date || "—" },
+      { label: t("pdtd_th_wk"), cls: "", get: (r) => esc(r.wk || "—") },
+      { label: "PDT/Day", cls: "tnum", get: (r) => r.pdt == null ? "—" : `<b class="${r.pdt < m.pdt_threshold ? "up" : "down"}">${r.pdt}</b>` },
+      { label: t("pdtd_th_wd"), cls: "tnum", get: (r) => num(r.work_days) },
+      { label: t("pdtd_th_disp"), cls: "tnum", get: (r) => num(r.dispatched) },
+      { label: t("pdtd_th_comp"), cls: "tnum", get: (r) => num(r.completed) },
+    ], dt.daily_wl, "", (r) => r.pdt != null && r.pdt < m.pdt_threshold);
+    else if (panel === 2) ev = pdtDTable([
+      { label: t("pdtd_th_date"), cls: "l tnum", get: (r) => r.date || "—" },
+      { label: t("pdtd_th_wk"), cls: "", get: (r) => esc(r.wk || "—") },
+      { label: t("pdtd_th_mh"), cls: "tnum", get: (r) => num(r.man_hour) },
+      { label: "Man Hour/Day", cls: "tnum", get: (r) => r.mhd == null ? "—" : `<b class="${r.mhd < 9 ? "up" : "down"}">${r.mhd}</b>` },
+      { label: t("pdtd_th_wd"), cls: "tnum", get: (r) => num(r.work_days) },
+      { label: t("pdtd_th_comp"), cls: "tnum", get: (r) => num(r.completed) },
+    ], dt.daily_wl, "", (r) => r.mhd != null && r.mhd < 9);
+    else if (panel === 3) ev = pdtDTable([
+      { label: t("pdtd_th_date"), cls: "l tnum", get: (r) => r.date || "—" },
+      { label: t("pdt_th_first"), cls: "tnum", get: (r) => r.first_arrive || "—" },
+      { label: t("pdt_th_last"), cls: "tnum", get: (r) => r.last_complete || "—" },
+      { label: t("pdtd_th_span"), cls: "tnum", get: (r) => r.span == null ? "—" : `<b>${r.span}</b>` },
+      { label: t("pdtd_th_wo"), cls: "tnum", get: (r) => r.wo },
+    ], dt.daily_ml, t("pdtd_noml"));
+    else ev = pdtDTable([
+      { label: t("pdtd_th_date"), cls: "l tnum", get: (r) => r.date || "—" },
+      { label: t("pdtd_th_wo"), cls: "tnum", get: (r) => r.wo },
+      { label: t("pdtd_th_pts"), cls: "tnum", get: (r) => `<b class="up">${num(r.points)}</b>` },
+    ], dt.daily_ml, t("pdtd_noml"));
+
+    const cond = `<div class="pdtd-cond"><span class="pdtd-badge ${panel === 4 ? "over" : "bad"}">${icon("i-alert")}${t("pdtd_flag")}</span><span class="pdtd-cond-t">${esc(t(titleKey))}</span></div>`;
+    const reasonsBlock = reasons.length ? `<section class="pdtd-block"><h3 class="pdtd-h">${t("pdtd_reasons")}</h3><ul class="pdtd-reasons">${reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></section>` : "";
+    $("pdtDrillBody").innerHTML =
+      `<section class="pdtd-block pdtd-verdict">${cond}${gauges}</section>` +
+      reasonsBlock + wt +
+      `<section class="pdtd-block"><h3 class="pdtd-h">${t("pdtd_evidence")}</h3>${ev}</section>`;
   }
   function renderMonthChips() {
     $("monthChips").innerHTML = DATA.months.map((m, i) => `<button type="button" class="mchip" data-mi="${i}" aria-pressed="${S.months.includes(i)}">${monthLbl(m)}</button>`).join("");
@@ -884,6 +1049,16 @@ function boot(DATA) {
     const mc = e.target.closest(".pdt-mchip"); if (mc) { toggle(S.pdt.months, mc.dataset.v); loadPdt(); return; }
     const wc = e.target.closest(".pdt-wchip"); if (wc) { toggle(S.pdt.weeks, wc.dataset.v); loadPdt(); }
   });
+  // open the drill-down for a clicked / keyboard-activated team row in any PDT panel
+  $("pdtView").addEventListener("click", (e) => {
+    const row = e.target.closest(".pdtd-row"); if (row) openPdtDrill(row.dataset.team, +row.dataset.panel);
+  });
+  $("pdtView").addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const row = e.target.closest(".pdtd-row"); if (row) { e.preventDefault(); openPdtDrill(row.dataset.team, +row.dataset.panel); }
+  });
+  $("pdtDrillClose").onclick = () => $("pdtDrill").close();
+  $("pdtDrill").addEventListener("click", (e) => { if (e.target === $("pdtDrill")) $("pdtDrill").close(); });
   $("monthChips").addEventListener("click", (e) => {
     const c = e.target.closest(".mchip"); if (!c) return;
     const mi = +c.dataset.mi, has = S.months.includes(mi);
