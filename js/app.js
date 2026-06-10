@@ -13,7 +13,7 @@ let LANG = (function () { try { return localStorage.getItem("lang") === "en" ? "
 const I18N = {
   th: {
     skip: "ข้ามไปยังเนื้อหาหลัก", loading: "กำลังโหลดข้อมูล…",
-    subtitle: "จัดอันดับ WO ซ้ำ Ticket เดิม · เจาะลึกหลายมิติ · MATELINE",
+    subtitle: "แดชบอร์ดกำกับดูแลทีมช่างภาคสนาม · หลายเงื่อนไขตรวจจับ · MATELINE + Work Load",
     copy: "คัดลอกลิงก์", copied: "คัดลอกแล้ว", src_btn: "ที่มาข้อมูล", files: "ไฟล์",
     theme_dark: "สลับเป็นธีมมืด", theme_light: "สลับเป็นธีมสว่าง",
     nav_conditions: "เงื่อนไขจับผิด",
@@ -50,7 +50,7 @@ const I18N = {
   },
   en: {
     skip: "Skip to main content", loading: "Loading data…",
-    subtitle: "Duplicate WO/Ticket ranking · multi-dimension drill-down · MATELINE",
+    subtitle: "Field-team oversight dashboard · multiple detection conditions · MATELINE + Work Load",
     copy: "Copy link", copied: "Copied", src_btn: "Data source", files: "files",
     theme_dark: "Switch to dark theme", theme_light: "Switch to light theme",
     nav_conditions: "Detection conditions",
@@ -146,28 +146,172 @@ Object.assign(I18N.en, {
   pdtd_r_ppd: "Average Point/Day {v} is {gap} above the standard of 13, from {pts} points over {days} days",
   pdtd_r_topwork: "Work type \"{w}\" accounts for {share} of all points",
 });
+Object.assign(I18N.th, {
+  imp_nav: "นำเข้าข้อมูล", imp_nav_d: "Template · ตรวจสอบ · Import",
+  imp_step1: "เลือกชุดข้อมูล", imp_step1d: "จะนำเข้าตารางไหน",
+  imp_step2: "ดาวน์โหลด Template", imp_step2d: "เปิดไฟล์ แล้วก็อปข้อมูลวางใต้หัวตาราง (อย่าแก้ชื่อหัวตาราง)",
+  imp_template_lbl: "ดาวน์โหลด Template (.xlsx)", imp_cols_sum: "คอลัมน์ที่ต้องมี ({n})",
+  imp_step3: "อัปโหลด & ตรวจสอบ", imp_step3d: "เลือกไฟล์ที่กรอกแล้ว ระบบจะตรวจให้ก่อนนำเข้า",
+  imp_drop_main: "ลากไฟล์มาวาง หรือคลิกเพื่อเลือก", imp_drop_sub: "รองรับ .xlsx เท่านั้น",
+  imp_drop_file: "ไฟล์: {name}",
+  imp_mode_append: "เพิ่มต่อท้าย", imp_mode_append_d: "เก็บข้อมูลเดิม แล้วเพิ่มแถวใหม่",
+  imp_mode_replace: "แทนที่ทั้งหมด", imp_mode_replace_d: "ลบข้อมูลเดิมทั้งตารางก่อน",
+  imp_report_title: "ผลการตรวจสอบ", imp_checking: "กำลังตรวจสอบ…", imp_committing: "กำลังนำเข้า…",
+  imp_ok: "ข้อมูลพร้อมนำเข้า", imp_blocked: "ยังนำเข้าไม่ได้ ต้องแก้ก่อน",
+  imp_total: "แถวทั้งหมด", imp_valid: "จะนำเข้า", imp_skipped: "ข้าม (ไม่มี key)", imp_issues: "เซลล์ที่มีปัญหา",
+  imp_key_missing: "ขาดคอลัมน์หลักที่จำเป็น", imp_missing_headers: "คอลัมน์ที่ขาด (จะถูกเว้นว่าง)",
+  imp_preview: "ตัวอย่างข้อมูล (แถวแรก ๆ)", imp_issue_list: "รายการเซลล์ที่แปลงค่าไม่ได้",
+  imp_th_row: "แถว", imp_th_col: "คอลัมน์", imp_th_val: "ค่า", imp_th_reason: "ปัญหา",
+  imp_reset: "ล้าง/เลือกไฟล์ใหม่", imp_commit_append: "ยืนยันนำเข้า (เพิ่มต่อ)", imp_commit_replace: "ยืนยันนำเข้า (แทนที่)",
+  imp_done: "นำเข้าสำเร็จ {n} แถว → {table}", imp_replace_warn: "โหมดแทนที่จะลบข้อมูลเดิมทั้งหมดในตารางนี้ก่อน — ทำแล้วย้อนกลับไม่ได้",
+  imp_err: "เกิดข้อผิดพลาด", imp_more_issues: "และอีก {n} รายการ",
+  flow_title: "การไหลของข้อมูล (Live)", flow_live: "อัปเดตสด", flow_updated: "อัปเดตเมื่อ {t}",
+  flow_sub: "ข้อมูลในฐานข้อมูลไหลไปแสดงผลในแท็บไหนบ้าง — ตัวเลขอัปเดตอัตโนมัติ และหลังนำเข้าข้อมูลใหม่",
+  flow_src: "ฐานข้อมูล", flow_use: "นำไปใช้ใน", flow_rows: "แถว", flow_months: "เดือน", flow_latest: "ล่าสุด",
+  flow_c_dup: "WO ซ้ำ Ticket เดิม", flow_c_pdt: "PDT/Day ไม่ผ่านเกณฑ์", flow_c_mhd: "Man Hour/Day < 9",
+  flow_c_hours: "เวลาทำงาน (ไม่ผ่านทั้งคู่)", flow_c_point: "Point/Day เกิน 13",
+  flow_tab_dup: "แท็บ WO ซ้ำ Ticket", flow_tab_pdt: "แท็บ PDT & Point",
+  auth_title: "เข้าสู่ระบบ", auth_sub: "ลงชื่อเข้าใช้เพื่อเปิดแดชบอร์ดกำกับดูแล", auth_user: "ชื่อผู้ใช้", auth_pass: "รหัสผ่าน",
+  auth_login: "เข้าสู่ระบบ", auth_logging: "กำลังเข้าสู่ระบบ…", auth_bad: "เข้าสู่ระบบไม่สำเร็จ", auth_logout: "ออกจากระบบ",
+  auth_brand_h: "เห็นทีมที่ควรตรวจสอบ ก่อนใคร", auth_brand_p: "หลายเงื่อนไขตรวจจับ — WO ซ้ำ Ticket, PDT & Point พร้อมเจาะลึกหลายมิติ จากข้อมูล MATELINE + Work Load สด",
+  auth_foot: "ww.co.th · เครื่องมือภายในองค์กร",
+  role_admin: "ผู้ดูแลระบบ", role_viewer: "ผู้ชม",
+  users_btn: "ผู้ใช้งาน", users_title: "จัดการผู้ใช้งาน", users_add: "เพิ่มผู้ใช้ใหม่",
+  users_th_user: "ชื่อผู้ใช้", users_th_role: "สิทธิ์", users_th_act: "จัดการ",
+  users_uname_ph: "ชื่อผู้ใช้", users_pw_ph: "รหัสผ่าน", users_newpw_ph: "รหัสผ่านใหม่ (เว้นว่าง=คงเดิม)",
+  users_create: "เพิ่ม", users_save: "บันทึก", users_del: "ลบ", users_you: "(คุณ)",
+  users_del_confirm: "ลบผู้ใช้ \"{u}\" ?", users_saved: "บันทึกแล้ว", users_loaderr: "โหลดรายชื่อผู้ใช้ไม่ได้",
+});
+Object.assign(I18N.en, {
+  imp_nav: "Import data", imp_nav_d: "Template · validate · import",
+  imp_step1: "Choose a dataset", imp_step1d: "Which table to import into",
+  imp_step2: "Download the template", imp_step2d: "Open it and paste your rows under the header (don't rename the headers)",
+  imp_template_lbl: "Download template (.xlsx)", imp_cols_sum: "Required columns ({n})",
+  imp_step3: "Upload & validate", imp_step3d: "Pick the filled file; it's checked before anything is imported",
+  imp_drop_main: "Drag a file here, or click to choose", imp_drop_sub: ".xlsx only",
+  imp_drop_file: "File: {name}",
+  imp_mode_append: "Append", imp_mode_append_d: "Keep existing rows, add the new ones",
+  imp_mode_replace: "Replace all", imp_mode_replace_d: "Empty the whole table first",
+  imp_report_title: "Validation result", imp_checking: "Checking…", imp_committing: "Importing…",
+  imp_ok: "Ready to import", imp_blocked: "Can't import yet, fix the issues first",
+  imp_total: "Total rows", imp_valid: "Will import", imp_skipped: "Skipped (no key)", imp_issues: "Cell issues",
+  imp_key_missing: "Missing required key column", imp_missing_headers: "Missing columns (left blank)",
+  imp_preview: "Preview (first rows)", imp_issue_list: "Cells that couldn't be parsed",
+  imp_th_row: "Row", imp_th_col: "Column", imp_th_val: "Value", imp_th_reason: "Issue",
+  imp_reset: "Clear / choose another", imp_commit_append: "Confirm import (append)", imp_commit_replace: "Confirm import (replace)",
+  imp_done: "Imported {n} rows → {table}", imp_replace_warn: "Replace mode deletes ALL existing rows in this table first — this can't be undone",
+  imp_err: "Something went wrong", imp_more_issues: "and {n} more",
+  flow_title: "Data flow (Live)", flow_live: "Live", flow_updated: "updated {t}",
+  flow_sub: "Where each table feeds in the dashboard — counts refresh automatically and after every import.",
+  flow_src: "Database", flow_use: "Used in", flow_rows: "rows", flow_months: "months", flow_latest: "latest",
+  flow_c_dup: "Duplicate WO/Ticket", flow_c_pdt: "PDT/Day below baseline", flow_c_mhd: "Man Hour/Day < 9",
+  flow_c_hours: "Working hours (fails both)", flow_c_point: "Point/Day over 13",
+  flow_tab_dup: "Duplicate WO/Ticket tab", flow_tab_pdt: "PDT & Point tab",
+  auth_title: "Sign in", auth_sub: "Sign in to open the oversight dashboard", auth_user: "Username", auth_pass: "Password",
+  auth_login: "Sign in", auth_logging: "Signing in…", auth_bad: "Sign-in failed", auth_logout: "Sign out",
+  auth_brand_h: "Spot the teams worth checking, first", auth_brand_p: "Multiple detection conditions — Duplicate WO/Ticket, PDT & Point with multi-dimensional drill-down, live from MATELINE + Work Load",
+  auth_foot: "ww.co.th · internal tool",
+  role_admin: "Admin", role_viewer: "Viewer",
+  users_btn: "Users", users_title: "Manage users", users_add: "Add a user",
+  users_th_user: "Username", users_th_role: "Role", users_th_act: "Actions",
+  users_uname_ph: "username", users_pw_ph: "password", users_newpw_ph: "new password (blank = keep)",
+  users_create: "Add", users_save: "Save", users_del: "Delete", users_you: "(you)",
+  users_del_confirm: "Delete user \"{u}\" ?", users_saved: "Saved", users_loaderr: "Couldn't load users",
+});
 function t(k, vars) {
   let s = (I18N[LANG] && I18N[LANG][k]) != null ? I18N[LANG][k] : k;
   if (vars) for (const v in vars) s = s.replace("{" + v + "}", vars[v]);
   return s;
 }
 
-// Prefer the live PostgreSQL-backed API; fall back to the static data file (e.g. on GitHub Pages).
-function loadJSON(apiPath, staticPath) {
-  return fetch(apiPath).then((r) => { if (!r.ok) throw new Error("api " + r.status); return r.json(); })
-    .catch(() => fetch(staticPath).then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }));
+// ---- auth layer (runs before the app boots) ----
+const AUTH = { token: null, user: null };
+try { AUTH.token = localStorage.getItem("tt_token"); } catch (e) {}
+const isAdmin = () => !!(AUTH.user && AUTH.user.role === "admin");
+function onAuthFail() {
+  AUTH.token = null; AUTH.user = null;
+  try { localStorage.removeItem("tt_token"); } catch (e) {}
+  showLogin();
 }
-loadJSON("api/data", "./data/data.json")
-  .then(boot)
-  .catch((err) => {
-    console.error(err);
-    const loading = document.getElementById("loading"); if (loading) loading.remove();
-    const wrap = document.querySelector(".wrap");
-    if (wrap) wrap.innerHTML = '<div class="errscreen" role="alert">' + icon("i-alert") +
-      "<h2>" + t("err_title") + "</h2>" +
-      "<p>" + t("err_body") + "</p>" +
-      "<pre>" + String(err) + "</pre></div>";
+// fetch wrapper that attaches the bearer token and bounces to login on 401
+function apiFetch(path, opts) {
+  opts = opts || {};
+  const headers = Object.assign({}, opts.headers || {});
+  if (AUTH.token) headers["Authorization"] = "Bearer " + AUTH.token;
+  return fetch(path, Object.assign({}, opts, { headers })).then((r) => {
+    if (r.status === 401) { onAuthFail(); throw new Error("unauthorized"); }
+    return r;
   });
+}
+// Prefer the live PostgreSQL-backed API; fall back to the static data file (only on a real outage, never on 401).
+function loadJSON(apiPath, staticPath) {
+  return apiFetch(apiPath).then((r) => { if (!r.ok) throw new Error("api " + r.status); return r.json(); })
+    .catch((e) => { if (String(e).includes("unauthorized")) throw e; return fetch(staticPath).then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }); });
+}
+const $$ = (id) => document.getElementById(id);
+function showLogin() {
+  const sc = $$("authScreen"); if (!sc) return;
+  const loading = $$("loading"); if (loading) loading.remove();
+  $$("authTitle").textContent = t("auth_title");
+  $$("authSub").textContent = t("auth_sub");
+  $$("authUserLbl").textContent = t("auth_user");
+  $$("authPassLbl").textContent = t("auth_pass");
+  $$("authSubmit").textContent = t("auth_login");
+  $$("authBrandH").textContent = t("auth_brand_h");
+  $$("authBrandP").textContent = t("auth_brand_p");
+  $$("authBrandFoot").textContent = t("auth_foot");
+  $$("authErr").hidden = true;
+  document.querySelector(".wrap").style.display = "none";
+  sc.hidden = false;
+  setTimeout(() => $$("authUser").focus(), 30);
+}
+function hideLogin() {
+  const sc = $$("authScreen"); if (sc) sc.hidden = true;
+  const w = document.querySelector(".wrap"); if (w) w.style.display = "";
+}
+$$("authToggle").addEventListener("click", () => {
+  const inp = $$("authPass"), shown = inp.type === "text";
+  inp.type = shown ? "password" : "text";
+  $$("authToggle").querySelector("use").setAttribute("href", shown ? "#i-eye" : "#i-eye-off");
+  inp.focus();
+});
+$$("authForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const btn = $$("authSubmit"), err = $$("authErr");
+  const username = $$("authUser").value.trim(), password = $$("authPass").value;
+  btn.disabled = true; btn.classList.add("is-loading"); btn.textContent = t("auth_logging"); err.hidden = true;
+  fetch("api/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username, password }) })
+    .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+    .then(({ ok, j }) => {
+      if (!ok) throw new Error(j.detail || t("auth_bad"));
+      AUTH.token = j.token; AUTH.user = j.user;
+      try { localStorage.setItem("tt_token", j.token); } catch (e2) {}
+      $$("authPass").value = "";
+      hideLogin(); startApp();
+    })
+    .catch((ex) => { err.textContent = String(ex.message || ex); err.hidden = false; })
+    .finally(() => { btn.disabled = false; btn.classList.remove("is-loading"); btn.textContent = t("auth_login"); });
+});
+function startApp() {
+  const w = document.querySelector(".wrap");
+  if (w && !w.querySelector("#main")) { location.reload(); return; } // app was torn down by an error screen
+  loadJSON("api/data", "./data/data.json")
+    .then(boot)
+    .catch((err) => {
+      console.error(err);
+      const loading = $$("loading"); if (loading) loading.remove();
+      const wrap = document.querySelector(".wrap");
+      if (wrap) wrap.innerHTML = '<div class="errscreen" role="alert">' + icon("i-alert") +
+        "<h2>" + t("err_title") + "</h2><p>" + t("err_body") + "</p><pre>" + String(err) + "</pre></div>";
+    });
+}
+function startAuth() {
+  if (!AUTH.token) { showLogin(); return; }
+  apiFetch("api/auth/me").then((r) => { if (!r.ok) throw new Error("me " + r.status); return r.json(); })
+    .then((u) => { AUTH.user = u; hideLogin(); startApp(); })
+    .catch(() => { /* 401 already routed to showLogin via apiFetch; other errors: */ if (AUTH.token) onAuthFail(); });
+}
+startAuth();
 
 function boot(DATA) {
   const loading = document.getElementById("loading"); if (loading) loading.remove();
@@ -188,8 +332,10 @@ function boot(DATA) {
     dim: Object.keys(DIMS)[0] || "sevT",
     view: "dup",
     pdt: { months: [], weeks: [], status: "", region: "", skill: "", province: "" },
+    imp: { dataset: "mateline", mode: "append" },
   };
   let pdtData = null;
+  let impSpec = null, impFile = null, impReport = null, impBusy = false;
   let lastRows = [], refocusKey = null, bdOtherKeys = [], drillState = null;
   const detailCache = {};
 
@@ -289,8 +435,9 @@ function boot(DATA) {
     });
   }
 
-  // tiny inline trend sparkline across the selected months
-  function spark(rates) {
+  // tiny inline trend sparkline across the selected months.
+  // badUp=true → an upward trend is the "bad" one (red); pass false where a falling metric is the problem.
+  function spark(rates, badUp = true) {
     const pts = rates.map((v, i) => [i, v]).filter((p) => p[1] != null);
     if (pts.length < 2) return '<span class="muted-dash">—</span>';
     const ys = pts.map((p) => p[1]), mn = Math.min(...ys), mx = Math.max(...ys);
@@ -298,7 +445,8 @@ function boot(DATA) {
     const X = (i) => pad + (w - 2 * pad) * (i / n);
     const Y = (v) => mx === mn ? h / 2 : pad + (h - 2 * pad) * (1 - (v - mn) / (mx - mn));
     let d = ""; pts.forEach((p) => { d += (d ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1) + " "; });
-    const cls = rateColor(pts[pts.length - 1][1] - pts[0][1]);
+    const delta = (pts[pts.length - 1][1] - pts[0][1]) * (badUp ? 1 : -1);
+    const cls = rateColor(delta);
     const col = cls === "up" ? "var(--bad)" : cls === "down" ? "var(--good)" : "var(--text-faint)";
     const lp = pts[pts.length - 1];
     return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><path d="${d}" fill="none" stroke="${col}" stroke-width="1.6"/><circle cx="${X(lp[0]).toFixed(1)}" cy="${Y(lp[1]).toFixed(1)}" r="2.1" fill="${col}"/></svg>`;
@@ -621,6 +769,8 @@ function boot(DATA) {
       `${icon("i-alert")}<span class="txt"><span class="nm">${behName(b)}</span><span class="d">${behDesc(b)}</span></span></button>`).join("");
     h += `<button type="button" role="tab" class="navitem" data-view="pdtpoint" aria-selected="${S.view === "pdtpoint"}">` +
       `${icon("i-layers")}<span class="txt"><span class="nm">${t("pdt_nav")}</span><span class="d">${t("pdt_nav_d")}</span></span></button>`;
+    if (isAdmin()) h += `<button type="button" role="tab" class="navitem navitem-import" data-view="import" aria-selected="${S.view === "import"}">` +
+      `${icon("i-download")}<span class="txt"><span class="nm">${t("imp_nav")}</span><span class="d">${t("imp_nav_d")}</span></span></button>`;
     $("behNav").innerHTML = h;
   }
 
@@ -635,7 +785,7 @@ function boot(DATA) {
   function loadPdt() {
     const load = `<div class="hintbox">${icon("i-info")}${t("drill_loading")}</div>`;
     ["pdtP1", "pdtP2", "pdtP3", "pdtP4"].forEach((id) => { $(id).innerHTML = load; });
-    return fetch("api/pdtpoint?" + pdtParams()).then((r) => { if (!r.ok) throw new Error("api " + r.status); return r.json(); })
+    return apiFetch("api/pdtpoint?" + pdtParams()).then((r) => { if (!r.ok) throw new Error("api " + r.status); return r.json(); })
       .then((d) => { pdtData = d; S.pdt.months = d.selected.months; S.pdt.weeks = d.selected.weeks; renderPdt(); writeURL(); })
       .catch((e) => { $("pdtP1").innerHTML = `<div class="hintbox">${icon("i-alert")}${esc(String(e))}</div>`; });
   }
@@ -683,11 +833,13 @@ function boot(DATA) {
       { label: t("th_name"), cls: "l", get: nameCell },
       { label: t("pdt_th_pdt"), cls: "tnum", get: (r) => `<b class="up">${r.pdt}</b> <small class="muted-dash">/ ${r.threshold}</small>` },
       { label: t("pdt_th_days"), cls: "tnum", get: (r) => r.days },
+      { label: t("th_trend"), cls: "trendcell", get: (r) => spark(r.spark || [], false) },
     ], pdtData.panel1, 1);
     $("pdtP2").innerHTML = pdtTable([
       { label: t("th_name"), cls: "l", get: nameCell },
       { label: t("pdt_th_mhd"), cls: "tnum", get: (r) => `<b class="up">${r.mhd}</b>` },
       { label: t("pdt_th_days"), cls: "tnum", get: (r) => r.days },
+      { label: t("th_trend"), cls: "trendcell", get: (r) => spark(r.spark || [], false) },
     ], pdtData.panel2, 2);
     const weekMsg = S.pdt.weeks.length ? t("pdt_none") : t("pdt_pickweek");
     $("pdtP3").innerHTML = pdtTable([
@@ -696,12 +848,14 @@ function boot(DATA) {
       { label: t("pdt_th_last"), cls: "tnum", get: (r) => r.last_complete || "—" },
       { label: t("pdt_th_hours"), cls: "tnum", get: (r) => r.hours == null ? "—" : `<b>${r.hours}</b>` },
       { label: t("pdt_th_days"), cls: "tnum", get: (r) => r.days },
+      { label: t("th_trend"), cls: "trendcell", get: (r) => spark(r.spark || [], false) },
     ], pdtData.panel3, 3, weekMsg);
     $("pdtP4").innerHTML = pdtTable([
       { label: t("th_name"), cls: "l", get: nameCell },
       { label: t("pdt_th_ptday"), cls: "tnum", get: (r) => `<b class="up">${r.point_per_day}</b>` },
       { label: t("pdt_th_days"), cls: "tnum", get: (r) => r.days },
       { label: t("pdt_th_work"), cls: "l", get: (r) => `<span lang="en">${esc(r.top_work || "—")}</span>` },
+      { label: t("th_trend"), cls: "trendcell", get: (r) => spark(r.spark || []) },
     ], pdtData.panel4, 4, weekMsg);
     pdtTrend();
   }
@@ -749,7 +903,7 @@ function boot(DATA) {
     const p = new URLSearchParams({ team, panel });
     if (S.pdt.months.length) p.set("months", S.pdt.months.join(","));
     if (S.pdt.weeks.length) p.set("weeks", S.pdt.weeks.join(","));
-    fetch("api/pdtdetail?" + p.toString())
+    apiFetch("api/pdtdetail?" + p.toString())
       .then((r) => { if (!r.ok) throw new Error("api " + r.status); return r.json(); })
       .then((dt) => { if (req === pdtDrillReq) renderPdtDrill(dt); })
       .catch((e) => { if (req === pdtDrillReq) $("pdtDrillBody").innerHTML = `<div class="hintbox">${icon("i-alert")}${esc(String(e))}</div>`; });
@@ -872,6 +1026,173 @@ function boot(DATA) {
       reasonsBlock + wt +
       `<section class="pdtd-block"><h3 class="pdtd-h">${t("pdtd_evidence")}</h3>${ev}</section>`;
   }
+  /* ---------- Import data tab ---------- */
+  const impTable = (ds) => (impSpec && impSpec[ds] ? impSpec[ds].table : ds);
+  /* ---------- live data-flow diagram ---------- */
+  let flowTimer = null;
+  function flowSVG() {
+    // source nodes (left) + consumer nodes (right) + animated edges; counts are filled by pollFlow()
+    const src = (y, accent, table, idR, idM) => `
+      <g class="flow-node flow-src ${accent}">
+        <rect x="12" y="${y}" width="232" height="96" rx="12"/>
+        <text class="flow-tname" x="28" y="${y + 26}" lang="en">${esc(table)}</text>
+        <text class="flow-rows" id="${idR}" x="28" y="${y + 58}">—</text>
+        <text class="flow-meta" id="${idM}" x="28" y="${y + 80}">—</text>
+      </g>`;
+    const cons = [
+      [16, t("flow_c_dup"), t("flow_tab_dup"), "acc"],
+      [70, t("flow_c_pdt"), t("flow_tab_pdt"), "teal"],
+      [124, t("flow_c_mhd"), t("flow_tab_pdt"), "teal"],
+      [178, t("flow_c_hours"), t("flow_tab_pdt"), "both"],
+      [232, t("flow_c_point"), t("flow_tab_pdt"), "acc"],
+    ].map(([y, label, tab, cls]) => `
+      <g class="flow-node flow-con ${cls}">
+        <rect x="486" y="${y}" width="262" height="46" rx="10"/>
+        <text class="flow-clabel" x="502" y="${y + 20}">${esc(label)}</text>
+        <text class="flow-ctab" x="502" y="${y + 36}">${esc(tab)}</text>
+      </g>`).join("");
+    const edge = (sx, sy, ex, ey, cls) => `<path class="flow-edge ${cls}" d="M${sx} ${sy} C${sx + 130} ${sy}, ${ex - 130} ${ey}, ${ex} ${ey}"/>`;
+    const M = [244, 78], W = [244, 222];   // source right-centres
+    const edges =
+      edge(M[0], M[1], 486, 37, "acc") + edge(M[0], M[1], 486, 199, "acc") + edge(M[0], M[1], 486, 253, "acc") +
+      edge(W[0], W[1], 486, 91, "teal") + edge(W[0], W[1], 486, 145, "teal") + edge(W[0], W[1], 486, 199, "teal");
+    return `<svg class="flowsvg" viewBox="0 0 760 296" role="img" aria-label="data flow">
+      <g class="flow-edges">${edges}</g>
+      ${src(30, "acc", "mateline_ticket_closed", "fMatRows", "fMatMeta")}
+      ${src(174, "teal", "work_load", "fWlRows", "fWlMeta")}
+      ${cons}
+    </svg>`;
+  }
+  function pollFlow() {
+    apiFetch("api/import/flow").then((r) => { if (!r.ok) throw new Error("api " + r.status); return r.json(); })
+      .then((d) => {
+        const fill = (idR, idM, s) => {
+          const er = $(idR), em = $(idM); if (!er || !em) return;
+          er.textContent = (s.rows || 0).toLocaleString() + " " + t("flow_rows");
+          em.textContent = `${s.months || 0} ${t("flow_months")} · ${t("flow_latest")} ${s.latest || "—"}`;
+        };
+        fill("fMatRows", "fMatMeta", d.mateline || {});
+        fill("fWlRows", "fWlMeta", d.work_load || {});
+        const now = new Date().toLocaleTimeString(LANG === "th" ? "th-TH" : "en-GB");
+        $("flowLiveLbl").textContent = `${t("flow_live")} · ${t("flow_updated", { t: now })}`;
+      })
+      .catch((e) => { if (!String(e).includes("unauthorized")) { /* keep last values */ } });
+  }
+  function stopFlow() { if (flowTimer) { clearInterval(flowTimer); flowTimer = null; } }
+  function startFlow() {
+    stopFlow(); pollFlow();
+    flowTimer = setInterval(() => { if (S.view !== "import") { stopFlow(); return; } pollFlow(); }, 6000);
+  }
+  function renderFlow() {
+    $("flowTitle").textContent = t("flow_title");
+    $("flowSub").textContent = t("flow_sub");
+    $("flowLiveLbl").textContent = t("flow_live");
+    $("impFlow").innerHTML = flowSVG();
+    startFlow();
+  }
+  function impDownloadTemplate(ds) {
+    apiFetch("api/import/template?dataset=" + encodeURIComponent(ds))
+      .then((r) => { if (!r.ok) throw new Error("api " + r.status); return r.blob(); })
+      .then((blob) => {
+        const url = URL.createObjectURL(blob), a = document.createElement("a");
+        a.href = url; a.download = "template_" + ds + ".xlsx"; document.body.appendChild(a); a.click();
+        a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1500);
+      })
+      .catch((e) => { if (!String(e).includes("unauthorized")) window.alert(t("imp_err") + ": " + e); });
+  }
+  function loadImpSpec() {
+    return apiFetch("api/import/spec").then((r) => { if (!r.ok) throw new Error("api " + r.status); return r.json(); }).then((d) => { impSpec = d; });
+  }
+  function renderImport() {
+    renderFlow();   // live data-flow overview (independent of the import spec)
+    if (!impSpec) { loadImpSpec().then(renderImport).catch((e) => { $("impReport").hidden = false; $("impReportTitle").textContent = t("imp_err"); $("impReportBody").innerHTML = `<div class="hintbox">${icon("i-alert")}${esc(String(e))}</div>`; }); return; }
+    const ds = S.imp.dataset;
+    $("impStep1").textContent = t("imp_step1"); $("impStep1d").textContent = t("imp_step1d");
+    $("impStep2").textContent = t("imp_step2"); $("impStep2d").textContent = t("imp_step2d");
+    $("impStep3").textContent = t("imp_step3"); $("impStep3d").textContent = t("imp_step3d");
+    $("impDataset").innerHTML = Object.keys(impSpec).map((k) =>
+      `<button type="button" class="imp-dsbtn" data-ds="${k}" aria-pressed="${ds === k}">` +
+      `<span class="imp-dslabel" lang="en">${esc(impSpec[k].label)}</span>` +
+      `<span class="imp-dstable" lang="en">${esc(impSpec[k].table)}</span></button>`).join("");
+    $("impTemplate").href = "#"; $("impTemplate").dataset.ds = ds;   // download is fetched with the token (see click handler)
+    $("impTemplateLbl").textContent = t("imp_template_lbl");
+    const cols = impSpec[ds].cols, keyc = impSpec[ds].key_cols, kcls = { ts: "k-ts", num: "k-num", txt: "k-txt" };
+    $("impColsSum").textContent = t("imp_cols_sum", { n: cols.length });
+    $("impColList").innerHTML = cols.map((c) => {
+      const k = keyc.includes(c.col);
+      return `<span class="imp-colchip ${kcls[c.kind]}${k ? " is-key" : ""}" lang="en" title="${esc(c.col)} · ${c.kind}">${esc(c.header)}${k ? " ★" : ""}</span>`;
+    }).join("");
+    $("impDropMain").textContent = impFile ? t("imp_drop_file", { name: impFile.name }) : t("imp_drop_main");
+    $("impDropSub").textContent = t("imp_drop_sub");
+    $("impDrop").classList.toggle("has-file", !!impFile);
+    $("impMode").innerHTML = [["append", "imp_mode_append", "imp_mode_append_d"], ["replace", "imp_mode_replace", "imp_mode_replace_d"]].map(([m, l, d]) =>
+      `<button type="button" class="imp-modebtn${m === "replace" ? " is-replace" : ""}" data-mode="${m}" aria-pressed="${S.imp.mode === m}">` +
+      `<span class="imp-modet">${t(l)}</span><span class="imp-moded">${t(d)}</span></button>`).join("");
+    $("impResetLbl").textContent = t("imp_reset");
+    $("impCommitLbl").textContent = t(S.imp.mode === "replace" ? "imp_commit_replace" : "imp_commit_append");
+    if (impReport) renderImportReport(); else $("impReport").hidden = true;
+  }
+  function impPickFile(f) {
+    if (!f) return;
+    if (!/\.xlsx$/i.test(f.name)) { impFile = null; impReport = { error: t("imp_drop_sub") }; renderImport(); return; }
+    impFile = f; impReport = null; renderImport(); impSend(false);
+  }
+  function impSend(commit) {
+    if (!impFile || impBusy) return;
+    if (commit && S.imp.mode === "replace" && !window.confirm(t("imp_replace_warn"))) return;
+    impBusy = true;
+    $("impReport").hidden = false;
+    $("impReportTitle").textContent = t("imp_report_title");
+    $("impReportCount").textContent = "";
+    $("impReportBody").innerHTML = `<div class="hintbox">${icon("i-info")}${commit ? t("imp_committing") : t("imp_checking")}</div>`;
+    $("impCommit").disabled = true; $("impReset").disabled = true;
+    const fd = new FormData();
+    fd.append("dataset", S.imp.dataset); fd.append("mode", S.imp.mode);
+    fd.append("commit", commit ? "true" : "false"); fd.append("file", impFile, impFile.name);
+    apiFetch("api/import", { method: "POST", body: fd })
+      .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+      .then(({ ok, j }) => { impBusy = false; $("impReset").disabled = false; impReport = ok ? j : { error: j.detail || ("API " + (j.status || "error")) }; if (ok && commit && j.committed) impFile = null; renderImport(); })
+      .catch((e) => { impBusy = false; $("impReset").disabled = false; impReport = { error: String(e) }; renderImportReport(); });
+  }
+  function renderImportReport() {
+    const r = impReport;
+    if (!r) { $("impReport").hidden = true; return; }
+    $("impReport").hidden = false;
+    $("impReportTitle").textContent = t("imp_report_title");
+    if (r.error) {
+      $("impReportCount").textContent = "";
+      $("impReportBody").innerHTML = `<div class="hintbox">${icon("i-alert")}${esc(r.error)}</div>`;
+      $("impCommit").disabled = true; return;
+    }
+    if (r.committed) {
+      const msg = t("imp_done", { n: r.inserted, table: impTable(r.dataset) });
+      $("impReportCount").innerHTML = `<span class="imp-badge ok">${icon("i-check")}${esc(msg)}</span>`;
+      $("impReportBody").innerHTML = `<div class="hintbox imp-success">${icon("i-check")}${esc(msg)}</div>`;
+      $("impCommit").disabled = true; return;
+    }
+    const ok = r.ok;
+    const stat = (lbl, val, cls) => `<div class="imp-stat${cls ? " " + cls : ""}"><div class="imp-statv">${val}</div><div class="imp-statl">${esc(lbl)}</div></div>`;
+    let body = `<div class="imp-verdict ${ok ? "ok" : "bad"}">${icon(ok ? "i-check" : "i-alert")}<b>${t(ok ? "imp_ok" : "imp_blocked")}</b></div>`;
+    body += `<div class="imp-statrow">` + stat(t("imp_total"), r.total_rows) + stat(t("imp_valid"), r.valid_rows, "good") +
+      stat(t("imp_skipped"), r.skipped_rows) + stat(t("imp_issues"), r.issue_count, r.issue_count ? "warn" : "") + `</div>`;
+    if (r.key_missing && r.key_missing.length) body += `<div class="imp-note bad">${icon("i-alert")}${t("imp_key_missing")}: <b lang="en">${r.key_missing.map(esc).join(", ")}</b></div>`;
+    if (r.missing_headers && r.missing_headers.length) body += `<div class="imp-note warn">${icon("i-info")}${t("imp_missing_headers")}: <span lang="en">${r.missing_headers.map(esc).join(", ")}</span></div>`;
+    if (S.imp.mode === "replace") body += `<div class="imp-note warn">${icon("i-alert")}${t("imp_replace_warn")}</div>`;
+    if (r.issues && r.issues.length) {
+      const head = `<tr><th class="tnum">${t("imp_th_row")}</th><th class="l">${t("imp_th_col")}</th><th class="l">${t("imp_th_val")}</th><th class="l">${t("imp_th_reason")}</th></tr>`;
+      const rh = r.issues.map((it) => `<tr><td class="tnum">${it.row}</td><td class="l" lang="en">${esc(it.column)}</td><td class="l">${esc(it.value)}</td><td class="l">${esc(it.reason)}</td></tr>`).join("");
+      const more = r.issue_count > r.issues.length ? `<div class="drill-note">${t("imp_more_issues", { n: r.issue_count - r.issues.length })}</div>` : "";
+      body += `<h3 class="imp-h">${t("imp_issue_list")}</h3><div class="tablewrap" style="max-height:240px"><table><thead>${head}</thead><tbody>${rh}</tbody></table></div>${more}`;
+    }
+    if (r.preview && r.preview.length) {
+      const head = `<tr>${r.preview_cols.map((c) => `<th class="l" lang="en">${esc(c)}</th>`).join("")}</tr>`;
+      const rh = r.preview.map((row) => `<tr>${row.map((v) => `<td class="l">${esc(v)}</td>`).join("")}</tr>`).join("");
+      body += `<h3 class="imp-h">${t("imp_preview")}</h3><div class="tablewrap" style="max-height:240px"><table><thead>${head}</thead><tbody>${rh}</tbody></table></div>`;
+    }
+    $("impReportCount").textContent = "";
+    $("impReportBody").innerHTML = body;
+    $("impCommit").disabled = !ok;
+  }
   function renderMonthChips() {
     $("monthChips").innerHTML = DATA.months.map((m, i) => `<button type="button" class="mchip" data-mi="${i}" aria-pressed="${S.months.includes(i)}">${monthLbl(m)}</button>`).join("");
   }
@@ -888,11 +1209,15 @@ function boot(DATA) {
 
   /* ---------- master render ---------- */
   function render() {
-    const isPdt = S.view === "pdtpoint";
-    $("dupView").hidden = isPdt;
+    if (S.view === "import" && !isAdmin()) S.view = "dup";   // viewers never reach the import tab
+    const isPdt = S.view === "pdtpoint", isImp = S.view === "import";
+    $("dupView").hidden = isPdt || isImp;
     $("pdtView").hidden = !isPdt;
+    $("importView").hidden = !isImp;
     $("behNav").querySelectorAll(".navitem").forEach((el) =>
-      el.setAttribute("aria-selected", String(el.dataset.view === "pdtpoint" ? isPdt : (!isPdt && el.dataset.k === S.beh))));
+      el.setAttribute("aria-selected", String(el.dataset.view === "pdtpoint" ? isPdt
+        : el.dataset.view === "import" ? isImp : (!isPdt && !isImp && el.dataset.k === S.beh))));
+    if (isImp) { renderImport(); writeURL(); return; }
     if (isPdt) { pdtData ? renderPdt() : loadPdt(); writeURL(); return; }
     try {
       const b = BEH.find((x) => x.k === S.beh), lvlTxt = t("lvl_" + S.level);
@@ -955,6 +1280,7 @@ function boot(DATA) {
     if (p.has("sel")) S.sel = p.get("sel");
     if (p.has("q")) S.search = p.get("q");
     if (p.get("view") === "pdtpoint") S.view = "pdtpoint";
+    else if (p.get("view") === "import") S.view = "import";
     if (p.has("pdt_months")) S.pdt.months = p.get("pdt_months").split(",").filter(Boolean);
     if (p.has("pdt_weeks")) S.pdt.weeks = p.get("pdt_weeks").split(",").filter(Boolean);
     ["status", "region", "skill", "province"].forEach((k) => { if (p.has("pdt_" + k)) S.pdt[k] = p.get("pdt_" + k); });
@@ -999,7 +1325,6 @@ function boot(DATA) {
       `<span class="up">${icon("i-up")}${t("lg_up")}</span>` +
       `<span class="flat">${icon("i-minus")}${t("lg_flat")}</span>`;
     $("langSeg").querySelectorAll("button").forEach((bn) => bn.setAttribute("aria-pressed", String(bn.dataset.lang === LANG)));
-    $("dataSrcLbl").textContent = `${t("src_btn")} · ${provenance().files} ${t("files")}`;
     renderFooter(); applyThemeIcon();
   }
   function renderFooter() {
@@ -1036,7 +1361,12 @@ function boot(DATA) {
   /* ---------- events ---------- */
   $("skillSeg").querySelectorAll("button").forEach((b) => b.onclick = () => { S.skill = b.dataset.v; S.region = ""; S.prov = ""; S.sel = null; render(); });
   $("levelSeg").querySelectorAll("button").forEach((b) => b.onclick = () => { S.level = b.dataset.v; S.sel = null; render(); });
-  const navSelect = (el) => { if (el.dataset.view === "pdtpoint") S.view = "pdtpoint"; else { S.view = "dup"; S.beh = el.dataset.k; } render(); };
+  const navSelect = (el) => {
+    if (el.dataset.view === "pdtpoint") S.view = "pdtpoint";
+    else if (el.dataset.view === "import") S.view = "import";
+    else { S.view = "dup"; S.beh = el.dataset.k; }
+    render();
+  };
   $("behNav").addEventListener("click", (e) => { const x = e.target.closest(".navitem"); if (x) navSelect(x); });
   $("behNav").addEventListener("keydown", (e) => {
     const items = [...$("behNav").querySelectorAll(".navitem")], i = items.indexOf(document.activeElement); if (i < 0) return;
@@ -1059,6 +1389,16 @@ function boot(DATA) {
   });
   $("pdtDrillClose").onclick = () => $("pdtDrill").close();
   $("pdtDrill").addEventListener("click", (e) => { if (e.target === $("pdtDrill")) $("pdtDrill").close(); });
+  // ---- import tab handlers ----
+  $("impDataset").addEventListener("click", (e) => { const b = e.target.closest(".imp-dsbtn"); if (b) { S.imp.dataset = b.dataset.ds; impFile = null; impReport = null; renderImport(); } });
+  $("impMode").addEventListener("click", (e) => { const b = e.target.closest(".imp-modebtn"); if (b) { S.imp.mode = b.dataset.mode; renderImport(); } });
+  $("impFile").addEventListener("change", (e) => { impPickFile(e.target.files[0]); e.target.value = ""; });
+  $("impDrop").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("impFile").click(); } });
+  ["dragenter", "dragover"].forEach((ev) => $("impDrop").addEventListener(ev, (e) => { e.preventDefault(); $("impDrop").classList.add("is-drag"); }));
+  ["dragleave", "drop"].forEach((ev) => $("impDrop").addEventListener(ev, (e) => { e.preventDefault(); $("impDrop").classList.remove("is-drag"); }));
+  $("impDrop").addEventListener("drop", (e) => { const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) impPickFile(f); });
+  $("impReset").onclick = () => { impFile = null; impReport = null; renderImport(); };
+  $("impCommit").onclick = () => impSend(true);
   $("monthChips").addEventListener("click", (e) => {
     const c = e.target.closest(".mchip"); if (!c) return;
     const mi = +c.dataset.mi, has = S.months.includes(mi);
@@ -1119,22 +1459,91 @@ function boot(DATA) {
   $("langSeg").querySelectorAll("button").forEach((b) => b.onclick = () => {
     if (LANG === b.dataset.lang) return;
     LANG = b.dataset.lang; try { localStorage.setItem("lang", LANG); } catch (e) {}
-    applyI18n(); renderNav(); renderDimSeg(); render();
+    applyI18n(); applyAuthUI(); renderNav(); renderDimSeg(); render();
   });
-  $("copyLink").onclick = () => {
-    const btn = $("copyLink"), lbl = btn.querySelector(".lbl");
-    const done = () => { btn.classList.add("is-ok"); btn.querySelector("use").setAttribute("href", "#i-check"); if (lbl) lbl.textContent = t("copied");
-      setTimeout(() => { btn.classList.remove("is-ok"); btn.querySelector("use").setAttribute("href", "#i-link"); if (lbl) lbl.textContent = t("copy"); }, 1600); };
-    if (navigator.clipboard) navigator.clipboard.writeText(location.href).then(done).catch(done); else done();
-  };
-  $("dataSrc").onclick = () => { renderSrcDialog(); const d = $("srcDialog"); if (d.showModal) d.showModal(); else d.setAttribute("open", ""); };
-  $("srcClose").onclick = () => $("srcDialog").close();
-  $("srcDialog").addEventListener("click", (e) => { if (e.target === $("srcDialog")) $("srcDialog").close(); });
   window.addEventListener("resize", debounce(renderChart, 120));
+
+  /* ---------- auth UI (header chip, logout, user management) ---------- */
+  function applyAuthUI() {
+    const u = AUTH.user || {}, admin = isAdmin();
+    $("userChip").hidden = false;
+    $("userName").textContent = u.username || "";
+    $("userRole").textContent = t(u.role === "admin" ? "role_admin" : "role_viewer");
+    $("userRole").className = "urole " + (u.role === "admin" ? "is-admin" : "is-viewer");
+    $("logoutBtn").hidden = false; $("logoutLbl").textContent = t("auth_logout");
+    $("usersBtn").hidden = !admin; $("usersBtnLbl").textContent = t("users_btn");
+  }
+  $("logoutBtn").onclick = () => {
+    AUTH.token = null; AUTH.user = null;
+    try { localStorage.removeItem("tt_token"); } catch (e) {}
+    location.reload();
+  };
+  function openUsers() { $("usersDialog").showModal ? $("usersDialog").showModal() : $("usersDialog").setAttribute("open", ""); $("usersTitle").textContent = t("users_title"); renderUsers(); }
+  $("usersBtn").onclick = openUsers;
+  $("usersClose").onclick = () => $("usersDialog").close();
+  $("usersDialog").addEventListener("click", (e) => { if (e.target === $("usersDialog")) $("usersDialog").close(); });
+  function renderUsers() {
+    $("usersBody").innerHTML = `<div class="hintbox">${icon("i-info")}${t("drill_loading")}</div>`;
+    apiFetch("api/users").then((r) => { if (!r.ok) throw new Error("api " + r.status); return r.json(); })
+      .then((d) => paintUsers(d.users || []))
+      .catch((e) => { if (!String(e).includes("unauthorized")) $("usersBody").innerHTML = `<div class="hintbox">${icon("i-alert")}${t("users_loaderr")}</div>`; });
+  }
+  function paintUsers(users) {
+    const me = (AUTH.user || {}).username;
+    const roleOpts = (sel) => `<option value="viewer"${sel === "viewer" ? " selected" : ""}>${t("role_viewer")}</option><option value="admin"${sel === "admin" ? " selected" : ""}>${t("role_admin")}</option>`;
+    const rows = users.map((u) => `<tr data-u="${esc(u.username)}">
+      <td class="l"><b lang="en">${esc(u.username)}</b>${u.username === me ? ` <small class="muted-dash">${t("users_you")}</small>` : ""}</td>
+      <td><select class="u-role" aria-label="role">${roleOpts(u.role)}</select></td>
+      <td class="l"><span class="u-newpw-wrap"><input class="u-newpw" type="password" placeholder="${t("users_newpw_ph")}" autocomplete="new-password"></span></td>
+      <td class="u-actions">
+        <button class="iconbtn u-save" type="button" title="${t("users_save")}">${icon("i-check")}</button>
+        <button class="iconbtn u-del" type="button" title="${t("users_del")}"${u.username === me ? " disabled" : ""}>${icon("i-trash")}</button>
+      </td></tr>`).join("");
+    const head = `<tr><th class="l">${t("users_th_user")}</th><th>${t("users_th_role")}</th><th class="l">${t("users_th_act")}</th><th></th></tr>`;
+    $("usersBody").innerHTML =
+      `<div class="tablewrap" style="max-height:46vh"><table class="utable"><thead>${head}</thead><tbody>${rows}</tbody></table></div>` +
+      `<form class="u-addform" id="uAdd"><h3 class="imp-h">${t("users_add")}</h3><div class="u-addrow">` +
+      `<input id="uNewName" type="text" placeholder="${t("users_uname_ph")}" autocomplete="off" required>` +
+      `<input id="uNewPw" type="password" placeholder="${t("users_pw_ph")}" autocomplete="new-password" required>` +
+      `<select id="uNewRole">${roleOpts("viewer")}</select>` +
+      `<button class="btn btn-primary" type="submit">${icon("i-plus")}${t("users_create")}</button></div><div class="autherr" id="uAddErr" hidden></div></form>`;
+  }
+  function uApi(path, opts) {
+    return apiFetch(path, opts).then((r) => r.json().then((j) => ({ ok: r.ok, j })));
+  }
+  $("usersBody").addEventListener("click", (e) => {
+    const tr = e.target.closest("tr[data-u]"); if (!tr) return;
+    const uname = tr.dataset.u;
+    if (e.target.closest(".u-save")) {
+      const role = tr.querySelector(".u-role").value, pw = tr.querySelector(".u-newpw").value;
+      const body = { role }; if (pw) body.password = pw;
+      uApi("api/users/" + encodeURIComponent(uname), { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
+        .then(({ ok, j }) => { if (!ok) throw new Error(j.detail || "error"); renderUsers(); })
+        .catch((ex) => { if (!String(ex).includes("unauthorized")) window.alert(String(ex.message || ex)); });
+    } else if (e.target.closest(".u-del")) {
+      if (!window.confirm(t("users_del_confirm", { u: uname }))) return;
+      uApi("api/users/" + encodeURIComponent(uname), { method: "DELETE" })
+        .then(({ ok, j }) => { if (!ok) throw new Error(j.detail || "error"); renderUsers(); })
+        .catch((ex) => { if (!String(ex).includes("unauthorized")) window.alert(String(ex.message || ex)); });
+    }
+  });
+  $("usersBody").addEventListener("submit", (e) => {
+    if (e.target.id !== "uAdd") return;
+    e.preventDefault();
+    const err = $("uAddErr");
+    const body = { username: $("uNewName").value.trim(), password: $("uNewPw").value, role: $("uNewRole").value };
+    uApi("api/users", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
+      .then(({ ok, j }) => { if (!ok) throw new Error(j.detail || "error"); renderUsers(); })
+      .catch((ex) => { if (String(ex).includes("unauthorized")) return; err.textContent = String(ex.message || ex); err.hidden = false; });
+  });
+
+  /* ---------- import handlers (template download needs the token) ---------- */
+  $("impTemplate").addEventListener("click", (e) => { e.preventDefault(); impDownloadTemplate(S.imp.dataset); });
 
   /* ---------- boot ---------- */
   readURL();
   applyI18n();
+  applyAuthUI();
   renderNav();
   renderMonthChips();
   renderDimSeg();

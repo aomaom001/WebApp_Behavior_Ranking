@@ -41,6 +41,10 @@ services:
       MONTH_SQL: ${MONTH_SQL:-to_char(closed, 'YYYY-MM')}
       COLMAP_JSON: ${COLMAP_JSON:-}
       CACHE_TTL: ${CACHE_TTL:-600}
+      AUTH_SECRET: ${AUTH_SECRET:-tt-dashboard-prod-secret-please-change}  # stable token-signing key
+      AUTH_TTL: ${AUTH_TTL:-28800}                                        # session length (sec) — 8h
+      AUTH_ADMIN_PW: ${AUTH_ADMIN_PW:-admin1234}                          # seeded once; change in-app after
+      AUTH_VIEWER_PW: ${AUTH_VIEWER_PW:-viewer1234}
     depends_on:
       db:
         condition: service_healthy

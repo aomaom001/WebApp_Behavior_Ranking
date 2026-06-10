@@ -7,8 +7,9 @@ WORKDIR /app
 COPY api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# shared aggregation logic (single source of truth with the Excel pipeline) + the app
+# shared aggregation logic + import spec (single source of truth with the Excel pipeline) + the app
 COPY scripts/agg_core.py /app/scripts/agg_core.py
+COPY scripts/import_spec.py /app/scripts/import_spec.py
 COPY api/main.py /app/main.py
 
 EXPOSE 8000

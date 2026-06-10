@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Team Behavior Ranking Dashboard</title>
-<meta name="description" content="แดชบอร์ดกำกับดูแล จัดอันดับทีมตามพฤติกรรม WO ซ้ำ Ticket เดิม เปรียบเทียบหลายเดือน เจาะลึกตาม Severity / Status / Work Type / Root Cause / SLA จากข้อมูล MATELINE">
+<title>TNB Dashboard</title>
+<meta name="description" content="TNB Dashboard — แดชบอร์ดกำกับดูแลทีมช่างภาคสนาม หลายเงื่อนไขตรวจจับ (WO ซ้ำ Ticket, PDT & Point) จากข้อมูล MATELINE + Work Load">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css?v=7">
+<link rel="stylesheet" href="css/styles.css?v=15">
 <script>
   (function () {
     try {
@@ -46,6 +46,15 @@
   <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></symbol>
   <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z"/></symbol>
   <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"/></symbol>
 </defs></svg>
 
 <a href="#main" class="skip-link" data-i18n="skip">ข้ามไปยังเนื้อหาหลัก</a>
@@ -55,12 +64,52 @@
   <span data-i18n="loading">กำลังโหลดข้อมูล…</span>
 </div>
 
+<div class="authscreen" id="authScreen" hidden>
+  <div class="authsplit">
+    <aside class="authaside" aria-hidden="true">
+      <div class="authaside-brand">
+        <span class="authaside-mark"><svg class="ico"><use href="#i-bars"/></svg></span>
+        <span class="authaside-wordmark">TNB Dashboard</span>
+      </div>
+      <div class="authaside-mid">
+        <h2 class="authaside-h" id="authBrandH"></h2>
+        <p class="authaside-p" id="authBrandP"></p>
+      </div>
+      <div class="authaside-foot" id="authBrandFoot"></div>
+      <svg class="authmotif" viewBox="0 0 400 240" preserveAspectRatio="none" aria-hidden="true">
+        <g class="authmotif-grid">
+          <line x1="0" y1="60" x2="400" y2="60"/><line x1="0" y1="110" x2="400" y2="110"/>
+          <line x1="0" y1="160" x2="400" y2="160"/><line x1="0" y1="210" x2="400" y2="210"/>
+        </g>
+        <polyline class="authmotif-line" points="0,170 60,150 120,165 180,120 240,135 300,80 360,95 400,55"/>
+        <g class="authmotif-bars"><rect x="40" y="180" width="14" height="40"/><rect x="110" y="160" width="14" height="60"/><rect x="180" y="190" width="14" height="30"/><rect x="250" y="150" width="14" height="70"/><rect x="320" y="135" width="14" height="85"/></g>
+      </svg>
+    </aside>
+    <div class="authmain">
+      <form class="authcard" id="authForm" autocomplete="on">
+        <span class="authmark-sm" aria-hidden="true"><svg class="ico"><use href="#i-bars"/></svg></span>
+        <h1 class="authtitle" id="authTitle"></h1>
+        <p class="authsub" id="authSub"></p>
+        <label class="authfield"><span id="authUserLbl"></span>
+          <span class="authinput"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg>
+            <input id="authUser" type="text" name="username" autocomplete="username" required></span></label>
+        <label class="authfield"><span id="authPassLbl"></span>
+          <span class="authinput"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg>
+            <input id="authPass" type="password" name="password" autocomplete="current-password" required>
+            <button class="autheye" id="authToggle" type="button" tabindex="-1" aria-label="show password"><svg class="ico" aria-hidden="true"><use href="#i-eye"/></svg></button></span></label>
+        <div class="autherr" id="authErr" role="alert" hidden></div>
+        <button class="authbtn" id="authSubmit" type="submit"></button>
+      </form>
+    </div>
+  </div>
+</div>
+
 <div class="wrap">
   <header>
     <div class="brand">
       <span class="brand-mark" aria-hidden="true"><svg class="ico"><use href="#i-bars"/></svg></span>
-      <h1>Team Behavior Ranking
-        <span class="sub" id="subtitle" data-i18n="subtitle">จัดอันดับ WO ซ้ำ Ticket เดิม · เจาะลึกหลายมิติ · MATELINE</span>
+      <h1>TNB Dashboard
+        <span class="sub" id="subtitle" data-i18n="subtitle">แดชบอร์ดกำกับดูแลทีมช่างภาคสนาม · หลายเงื่อนไขตรวจจับ · MATELINE + Work Load</span>
       </h1>
     </div>
     <div class="head-actions">
@@ -68,9 +117,10 @@
         <button type="button" data-lang="th" lang="th">ไทย</button>
         <button type="button" data-lang="en" lang="en">EN</button>
       </div>
-      <button class="iconbtn" id="dataSrc" type="button"><svg class="ico" aria-hidden="true"><use href="#i-db"/></svg><span class="lbl" id="dataSrcLbl">ที่มาข้อมูล</span></button>
-      <button class="iconbtn" id="copyLink" type="button"><svg class="ico" aria-hidden="true"><use href="#i-link"/></svg><span class="lbl" data-i18n="copy">คัดลอกลิงก์</span></button>
       <button class="iconbtn" id="themeToggle" type="button" aria-label="theme"><svg class="ico" aria-hidden="true"><use href="#i-moon"/></svg></button>
+      <div class="userchip" id="userChip" hidden><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg><span class="uname" id="userName"></span><span class="urole" id="userRole"></span></div>
+      <button class="iconbtn" id="usersBtn" type="button" hidden><svg class="ico" aria-hidden="true"><use href="#i-users"/></svg><span class="lbl" id="usersBtnLbl"></span></button>
+      <button class="iconbtn" id="logoutBtn" type="button" hidden><svg class="ico" aria-hidden="true"><use href="#i-logout"/></svg><span class="lbl" id="logoutLbl"></span></button>
     </div>
   </header>
 
@@ -204,6 +254,62 @@
     <section class="panel" aria-labelledby="pdtTT"><div class="panel-head"><h2 id="pdtTT"></h2><div class="rowcount" id="pdtTC" aria-live="polite"></div></div><div class="chartbox" style="height:240px"><svg id="pdtTrendSvg" role="img" width="100%" height="240" preserveAspectRatio="none"></svg></div><div class="legend" id="pdtTrendLeg"></div></section>
   </section>
 
+  <section id="importView" hidden>
+    <section class="panel imp-flowpanel">
+      <div class="panel-head">
+        <h2 id="flowTitle"></h2>
+        <div class="flow-live" id="flowLive"><span class="flow-dot" aria-hidden="true"></span><span id="flowLiveLbl"></span></div>
+      </div>
+      <p class="imp-sub" id="flowSub"></p>
+      <div class="flowwrap" id="impFlow"></div>
+    </section>
+
+    <div class="imp-grid">
+      <section class="panel imp-step">
+        <div class="imp-stepno">1</div>
+        <div class="imp-stepbody">
+          <h2 id="impStep1"></h2>
+          <p class="imp-sub" id="impStep1d"></p>
+          <div class="imp-dsseg" id="impDataset" role="group" aria-label="dataset"></div>
+        </div>
+      </section>
+
+      <section class="panel imp-step">
+        <div class="imp-stepno">2</div>
+        <div class="imp-stepbody">
+          <h2 id="impStep2"></h2>
+          <p class="imp-sub" id="impStep2d"></p>
+          <a class="btn" id="impTemplate" download><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg><span id="impTemplateLbl"></span></a>
+          <details class="imp-cols"><summary id="impColsSum"></summary><div class="imp-colgrid" id="impColList"></div></details>
+        </div>
+      </section>
+
+      <section class="panel imp-step">
+        <div class="imp-stepno">3</div>
+        <div class="imp-stepbody">
+          <h2 id="impStep3"></h2>
+          <p class="imp-sub" id="impStep3d"></p>
+          <label class="imp-drop" id="impDrop" tabindex="0">
+            <input type="file" id="impFile" accept=".xlsx" hidden>
+            <svg class="ico" aria-hidden="true"><use href="#i-download"/></svg>
+            <span class="imp-dropmain" id="impDropMain"></span>
+            <span class="imp-dropsub" id="impDropSub"></span>
+          </label>
+          <div class="imp-mode" id="impMode" role="group" aria-label="mode"></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel imp-report" id="impReport" hidden>
+      <div class="panel-head"><h2 id="impReportTitle"></h2><div class="rowcount" id="impReportCount" aria-live="polite"></div></div>
+      <div id="impReportBody"></div>
+      <div class="imp-actions">
+        <button class="btn" id="impReset" type="button"><svg class="ico" aria-hidden="true"><use href="#i-reset"/></svg><span id="impResetLbl"></span></button>
+        <button class="btn btn-primary" id="impCommit" type="button" disabled><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span id="impCommitLbl"></span></button>
+      </div>
+    </section>
+  </section>
+
   <footer class="foot" id="foot"></footer>
   </main>
   </div>
@@ -243,6 +349,14 @@
   <div class="dialog-body" id="pdtDrillBody"></div>
 </dialog>
 
-<script src="js/app.js?v=7"></script>
+<dialog id="usersDialog" class="dialog dialog-wide" aria-labelledby="usersTitle">
+  <div class="dialog-head">
+    <h2 id="usersTitle"></h2>
+    <button class="iconbtn" id="usersClose" type="button" aria-label="close"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="dialog-body" id="usersBody"></div>
+</dialog>
+
+<script src="js/app.js?v=15"></script>
 </body>
 </html>

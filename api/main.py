@@ -21,15 +21,18 @@ import sys
 import threading
 import time
 
-from fastapi import FastAPI, HTTPException
+import io
+
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 import psycopg
 from psycopg.rows import dict_row
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts"))
 sys.path.insert(0, "/app/scripts")
 import agg_core  # noqa: E402
+import import_spec  # noqa: E402
 
 # Map the MATELINE names agg_core expects -> the actual DB columns (snake_case here).
 # The SQL aliases each DB column back to the expected name, so agg_core is unchanged.
@@ -62,12 +65,203 @@ app = FastAPI(title="Team Behavior Ranking API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
+# ============================================================ Auth (login + roles)
+import hashlib
+import hmac
+import base64
+
+AUTH_SECRET = os.environ.get("AUTH_SECRET", "tt-dashboard-dev-secret-change-me").encode()
+TOKEN_TTL = int(os.environ.get("AUTH_TTL", str(8 * 3600)))   # 8 hours
+USERS_TABLE = "app_users"
+ROLES = ("admin", "viewer")
+# anything under /api/ needs a valid token except these; these prefixes additionally need role=admin
+_PUBLIC_PATHS = {"/healthz", "/api/auth/login"}
+_ADMIN_PREFIXES = ("/api/import", "/api/refresh", "/api/users")
+
+
+def _b64(b):
+    return base64.urlsafe_b64encode(b).decode().rstrip("=")
+
+
+def _ub64(s):
+    return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+
+
+def hash_pw(pw, salt=None):
+    salt = salt or os.urandom(16)
+    dk = hashlib.pbkdf2_hmac("sha256", pw.encode(), salt, 200_000)
+    return salt.hex(), dk.hex()
+
+
+def verify_pw(pw, salt_hex, hash_hex):
+    try:
+        dk = hashlib.pbkdf2_hmac("sha256", pw.encode(), bytes.fromhex(salt_hex), 200_000)
+    except ValueError:
+        return False
+    return hmac.compare_digest(dk.hex(), hash_hex)
+
+
+def make_token(username, role, ttl=TOKEN_TTL):
+    payload = {"sub": username, "role": role, "exp": int(time.time()) + ttl}
+    body = _b64(json.dumps(payload, separators=(",", ":")).encode())
+    sig = _b64(hmac.new(AUTH_SECRET, body.encode(), hashlib.sha256).digest())
+    return f"{body}.{sig}"
+
+
+def verify_token(tok):
+    try:
+        body, sig = tok.split(".", 1)
+        expect = _b64(hmac.new(AUTH_SECRET, body.encode(), hashlib.sha256).digest())
+        if not hmac.compare_digest(sig, expect):
+            return None
+        payload = json.loads(_ub64(body))
+        if int(payload.get("exp", 0)) < int(time.time()):
+            return None
+        return payload
+    except Exception:
+        return None
+
+
+def _bearer(request):
+    h = request.headers.get("authorization", "")
+    return h[7:].strip() if h.lower().startswith("bearer ") else ""
+
+
+def _ensure_users():
+    """Create the users table and seed the default admin + viewer accounts (once)."""
+    admin_pw = os.environ.get("AUTH_ADMIN_PW", "admin1234")
+    viewer_pw = os.environ.get("AUTH_VIEWER_PW", "viewer1234")
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(f"CREATE TABLE IF NOT EXISTS {USERS_TABLE} "
+                    "(username text PRIMARY KEY, salt text, pw_hash text, role text, created_at timestamptz DEFAULT now())")
+        cur.execute(f"SELECT count(*) n FROM {USERS_TABLE}")
+        if cur.fetchone()["n"] == 0:
+            for uname, pw, role in (("admin", admin_pw, "admin"), ("viewer", viewer_pw, "viewer")):
+                s, h = hash_pw(pw)
+                cur.execute(f"INSERT INTO {USERS_TABLE} (username, salt, pw_hash, role) VALUES (%s,%s,%s,%s)", (uname, s, h, role))
+        conn.commit()
+
+
 @app.middleware("http")
-async def no_store(request, call_next):
-    # Live data must never be cached by the browser — otherwise a redeploy keeps showing stale results.
+async def auth_and_no_store(request, call_next):
+    path = request.url.path
+    if request.method != "OPTIONS" and path.startswith("/api/") and path not in _PUBLIC_PATHS:
+        claims = verify_token(_bearer(request))
+        if not claims:
+            return JSONResponse({"detail": "unauthorized"}, status_code=401)
+        if any(path.startswith(p) for p in _ADMIN_PREFIXES) and claims.get("role") != "admin":
+            return JSONResponse({"detail": "forbidden — admin only"}, status_code=403)
+        request.state.user = claims
     resp = await call_next(request)
-    resp.headers["Cache-Control"] = "no-store"
+    resp.headers["Cache-Control"] = "no-store"   # live data must never be browser-cached
     return resp
+
+
+@app.on_event("startup")
+def _startup():
+    try:
+        _ensure_users()
+    except Exception as e:  # DB may briefly be unready; login will seed on first use
+        print(f"user seed deferred: {e}", flush=True)
+
+
+@app.post("/api/auth/login")
+async def auth_login(payload: dict):
+    username = (payload.get("username") or "").strip()
+    password = payload.get("password") or ""
+    if not username or not password:
+        raise HTTPException(400, "กรอกชื่อผู้ใช้และรหัสผ่าน")
+    try:
+        _ensure_users()
+        with _connect() as conn, conn.cursor() as cur:
+            cur.execute(f"SELECT username, salt, pw_hash, role FROM {USERS_TABLE} WHERE username=%s", (username,))
+            u = cur.fetchone()
+    except Exception as e:
+        raise HTTPException(503, f"login failed: {e}")
+    if not u or not verify_pw(password, u["salt"], u["pw_hash"]):
+        raise HTTPException(401, "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง")
+    return {"token": make_token(u["username"], u["role"]), "user": {"username": u["username"], "role": u["role"]}}
+
+
+@app.get("/api/auth/me")
+async def auth_me(request: Request):
+    u = getattr(request.state, "user", None)
+    if not u:
+        raise HTTPException(401, "unauthorized")
+    return {"username": u["sub"], "role": u["role"]}
+
+
+# ---- user management (admin only; guarded by the middleware prefix) ----
+@app.get("/api/users")
+def users_list():
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(f"SELECT username, role, created_at FROM {USERS_TABLE} ORDER BY role, username")
+        return {"users": [{"username": r["username"], "role": r["role"],
+                           "created_at": r["created_at"].isoformat() if r["created_at"] else None} for r in cur.fetchall()]}
+
+
+@app.post("/api/users")
+def users_create(payload: dict):
+    username = (payload.get("username") or "").strip()
+    password = payload.get("password") or ""
+    role = payload.get("role") or "viewer"
+    if not username or not password:
+        raise HTTPException(400, "กรอกชื่อผู้ใช้และรหัสผ่าน")
+    if role not in ROLES:
+        raise HTTPException(400, "role ไม่ถูกต้อง")
+    s, h = hash_pw(password)
+    try:
+        with _connect() as conn, conn.cursor() as cur:
+            cur.execute(f"INSERT INTO {USERS_TABLE} (username, salt, pw_hash, role) VALUES (%s,%s,%s,%s)", (username, s, h, role))
+            conn.commit()
+    except psycopg.errors.UniqueViolation:
+        raise HTTPException(409, "มีชื่อผู้ใช้นี้แล้ว")
+    return {"ok": True, "username": username, "role": role}
+
+
+@app.patch("/api/users/{username}")
+def users_update(username: str, payload: dict):
+    role = payload.get("role")
+    password = payload.get("password")
+    if role is not None and role not in ROLES:
+        raise HTTPException(400, "role ไม่ถูกต้อง")
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(f"SELECT role FROM {USERS_TABLE} WHERE username=%s", (username,))
+        cur_row = cur.fetchone()
+        if not cur_row:
+            raise HTTPException(404, "ไม่พบผู้ใช้")
+        # never demote the last admin
+        if role == "viewer" and cur_row["role"] == "admin":
+            cur.execute(f"SELECT count(*) n FROM {USERS_TABLE} WHERE role='admin'")
+            if cur.fetchone()["n"] <= 1:
+                raise HTTPException(400, "ต้องมี admin อย่างน้อย 1 คน")
+        if role is not None:
+            cur.execute(f"UPDATE {USERS_TABLE} SET role=%s WHERE username=%s", (role, username))
+        if password:
+            s, h = hash_pw(password)
+            cur.execute(f"UPDATE {USERS_TABLE} SET salt=%s, pw_hash=%s WHERE username=%s", (s, h, username))
+        conn.commit()
+    return {"ok": True}
+
+
+@app.delete("/api/users/{username}")
+def users_delete(username: str, request: Request):
+    me = getattr(request.state, "user", {}).get("sub")
+    if username == me:
+        raise HTTPException(400, "ลบบัญชีตัวเองไม่ได้")
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(f"SELECT role FROM {USERS_TABLE} WHERE username=%s", (username,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, "ไม่พบผู้ใช้")
+        if row["role"] == "admin":
+            cur.execute(f"SELECT count(*) n FROM {USERS_TABLE} WHERE role='admin'")
+            if cur.fetchone()["n"] <= 1:
+                raise HTTPException(400, "ต้องมี admin อย่างน้อย 1 คน")
+        cur.execute(f"DELETE FROM {USERS_TABLE} WHERE username=%s", (username,))
+        conn.commit()
+    return {"ok": True}
+
 
 _lock = threading.Lock()
 _cache = {"built_at": 0.0, "data": None, "detail": {}}
@@ -222,6 +416,24 @@ def pdtpoint(months: str = "", weeks: str = "", status: str = "", region: str = 
                              for r in wl if r["mhd"] is not None and r["mhd"] < 9], key=lambda x: x["mhd"])
             both = list(set(x["team"] for x in panel1) & set(x["team"] for x in panel2))
 
+            # per-team weekly series for the row sparklines (panels 1 & 2)
+            sp_pdt, sp_mhd = {}, {}
+            cur.execute("""SELECT team, source_month, flag_wk, avg(pdt_day_avg) pdt, avg(man_hour_day) mhd
+                FROM work_load
+                WHERE source_month = ANY(%(ms)s)
+                  AND (%(wlen)s = 0 OR flag_wk = ANY(%(wl)s)) AND (%(s)s='' OR status_team=%(s)s)
+                  AND (%(r)s='' OR region=%(r)s) AND (%(k)s='' OR skill=%(k)s)
+                  AND (%(p)s='' OR province=%(p)s) AND skill IN ('OFC','NODE')
+                GROUP BY team, source_month, flag_wk
+                ORDER BY team, source_month, nullif(regexp_replace(flag_wk, '\\D', '', 'g'), '')::int""", params)
+            for r in cur.fetchall():
+                sp_pdt.setdefault(r["team"], []).append(round(r["pdt"], 3) if r["pdt"] is not None else None)
+                sp_mhd.setdefault(r["team"], []).append(round(r["mhd"], 3) if r["mhd"] is not None else None)
+            for row in panel1:
+                row["spark"] = sp_pdt.get(row["team"], [])
+            for row in panel2:
+                row["spark"] = sp_mhd.get(row["team"], [])
+
             panel3, panel4 = [], []
             yrs = sorted({int(m[:4]) for m in sel if m[:4].isdigit()})
             wknums = sorted({int(w[2:]) for w in wsel if w.upper().startswith("WK") and w[2:].isdigit()})
@@ -240,6 +452,19 @@ def pdtpoint(months: str = "", weeks: str = "", status: str = "", region: str = 
                         GROUP BY team, date(completed)) y GROUP BY team""", {"t": both, "wks": wknums, "yrs": yrs})
                     comp = {r["team"]: r for r in cur.fetchall()}
 
+                    # per-team weekly working-span series (panel 3 sparkline)
+                    cur.execute("""SELECT team, yr, wk, avg(span) span FROM (
+                        SELECT team, extract(isoyear from arrived) yr, extract(week from arrived) wk, date(arrived) d,
+                               extract(epoch from (max(completed) - min(arrived)))/3600 span
+                        FROM mateline_ticket_closed
+                        WHERE team = ANY(%(t)s) AND arrived IS NOT NULL AND completed IS NOT NULL
+                          AND extract(week from arrived)=ANY(%(wks)s) AND extract(isoyear from arrived)=ANY(%(yrs)s)
+                        GROUP BY team, yr, wk, date(arrived)) x
+                        GROUP BY team, yr, wk ORDER BY team, yr, wk""", {"t": both, "wks": wknums, "yrs": yrs})
+                    sp_hrs = {}
+                    for r in cur.fetchall():
+                        sp_hrs.setdefault(r["team"], []).append(round(r["span"], 2) if r["span"] is not None else None)
+
                     def hhmm(sec):
                         if sec is None:
                             return None
@@ -252,7 +477,8 @@ def pdtpoint(months: str = "", weeks: str = "", status: str = "", region: str = 
                         hrs = round((lc - fa) / 3600, 2) if (fa is not None and lc is not None) else None
                         w = wlmap[t]
                         panel3.append({"team": t, "name": nm(t), "skill": w["skill"], "region": w["region"], "province": w["province"],
-                                       "first_arrive": hhmm(fa), "last_complete": hhmm(lc), "hours": hrs, "days": a["days"] if a else 0})
+                                       "first_arrive": hhmm(fa), "last_complete": hhmm(lc), "hours": hrs, "days": a["days"] if a else 0,
+                                       "spark": sp_hrs.get(t, [])})
                     panel3.sort(key=lambda x: (x["hours"] is None, -(x["hours"] or 0)))
 
                 fteams = list(wlmap.keys())
@@ -263,13 +489,25 @@ def pdtpoint(months: str = "", weeks: str = "", status: str = "", region: str = 
                         WHERE team = ANY(%(t)s) AND completed IS NOT NULL AND point IS NOT NULL
                           AND extract(week from completed)=ANY(%(wks)s) AND extract(isoyear from completed)=ANY(%(yrs)s)
                         GROUP BY team""", {"t": fteams, "wks": wknums, "yrs": yrs})
+                    p4rows = cur.fetchall()
+                    # per-team weekly point/day series (panel 4 sparkline)
+                    cur.execute("""SELECT team, yr, wk, sum(point)/nullif(count(DISTINCT d), 0) ppd FROM (
+                        SELECT team, extract(isoyear from completed) yr, extract(week from completed) wk, date(completed) d, point
+                        FROM mateline_ticket_closed
+                        WHERE team = ANY(%(t)s) AND completed IS NOT NULL AND point IS NOT NULL
+                          AND extract(week from completed)=ANY(%(wks)s) AND extract(isoyear from completed)=ANY(%(yrs)s)) z
+                        GROUP BY team, yr, wk ORDER BY team, yr, wk""", {"t": fteams, "wks": wknums, "yrs": yrs})
+                    sp_ppd = {}
                     for r in cur.fetchall():
+                        sp_ppd.setdefault(r["team"], []).append(round(r["ppd"], 2) if r["ppd"] is not None else None)
+                    for r in p4rows:
                         days = r["days"] or 0
                         ppd = (r["pts"] / days) if (days and r["pts"] is not None) else None
                         if ppd is not None and ppd > 13:
                             w = wlmap[r["team"]]
                             panel4.append({"team": r["team"], "name": nm(r["team"]), "skill": w["skill"], "region": w["region"],
-                                           "province": w["province"], "point_per_day": round(ppd, 2), "days": days, "top_work": r["top_work"]})
+                                           "province": w["province"], "point_per_day": round(ppd, 2), "days": days, "top_work": r["top_work"],
+                                           "spark": sp_ppd.get(r["team"], [])})
                     panel4.sort(key=lambda x: -x["point_per_day"])
 
             # weekly trend across the selected months (ignores the week filter) — past -> present
@@ -385,6 +623,208 @@ def pdtdetail(team: str, panel: int, months: str = "", weeks: str = ""):
         return {"meta": meta, "panel": panel, "daily_wl": daily_wl, "daily_ml": daily_ml, "worktypes": worktypes, "ml": ml}
     except Exception as e:
         raise HTTPException(503, f"pdtdetail failed: {e}")
+
+
+# ============================================================ Import (template + validate + commit)
+def _spec(dataset):
+    spec = import_spec.DATASETS.get(dataset)
+    if not spec:
+        raise HTTPException(400, f"unknown dataset '{dataset}' (use mateline or work_load)")
+    return spec
+
+
+@app.get("/api/import/flow")
+def import_flow():
+    """Live counts for the two source tables — drives the data-flow view in the Import tab."""
+    out = {}
+    with _connect() as conn, conn.cursor() as cur:
+        def stat(table, month_expr):
+            try:
+                cur.execute(f"SELECT count(*) rows, count(DISTINCT {month_expr}) months, max({month_expr}) latest FROM {table}")
+                r = cur.fetchone()
+                return {"rows": r["rows"] or 0, "months": r["months"] or 0, "latest": r["latest"]}
+            except Exception:
+                conn.rollback()
+                return {"rows": 0, "months": 0, "latest": None}
+        out["mateline"] = {"table": "mateline_ticket_closed", **stat("mateline_ticket_closed", MONTH_SQL)}
+        out["work_load"] = {"table": "work_load", **stat("work_load", "source_month")}
+    return out
+
+
+@app.get("/api/import/spec")
+def import_spec_info():
+    """Describe the importable datasets (labels, columns, key columns) for the UI."""
+    out = {}
+    for key, spec in import_spec.DATASETS.items():
+        out[key] = {"table": spec["table"], "label": spec["label"], "sheet": spec["sheet"] or "Sheet1",
+                    "key_cols": spec["key_cols"],
+                    "cols": [{"header": h, "col": snk, "kind": kind} for (h, snk, kind) in spec["cols"]]}
+    return out
+
+
+@app.get("/api/import/template")
+def import_template(dataset: str):
+    """Download a ready-to-fill .xlsx whose headers match the dataset exactly."""
+    import openpyxl
+    spec = _spec(dataset)
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = spec["sheet"] or "Data"
+    headers = [c[0] for c in spec["cols"]]
+    ws.append(headers)
+    from openpyxl.styles import Font, PatternFill
+    fill = PatternFill("solid", fgColor="1F2A44")
+    for i, (h, snk, kind) in enumerate(spec["cols"], start=1):
+        cell = ws.cell(row=1, column=i)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = fill
+        ws.column_dimensions[cell.column_letter].width = max(12, min(28, len(h) + 3))
+    ws.freeze_panes = "A2"
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    fn = f"template_{dataset}.xlsx"
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": f'attachment; filename="{fn}"', "Cache-Control": "no-store"})
+
+
+def _read_upload(spec, raw):
+    """Parse the uploaded workbook into (header_map, data_rows). header_map: snake -> (col_index, kind)."""
+    import openpyxl
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(raw), read_only=True, data_only=True)
+    except Exception as e:
+        raise HTTPException(400, f"อ่านไฟล์ Excel ไม่ได้: {e}")
+    sheet = spec["sheet"]
+    if sheet and sheet in wb.sheetnames:
+        ws = wb[sheet]
+    else:
+        ws = wb[wb.sheetnames[0]]
+    it = ws.iter_rows(values_only=True)
+    try:
+        header = list(next(it))
+    except StopIteration:
+        wb.close()
+        raise HTTPException(400, "ไฟล์ว่าง ไม่มีหัวตาราง")
+    want = {import_spec.norm(h): (snk, kind) for h, snk, kind in spec["cols"]}
+    pos = {}
+    for i, h in enumerate(header):
+        k = import_spec.norm(h)
+        if k in want and want[k][0] not in pos:
+            pos[want[k][0]] = (i, want[k][1])
+    rows = [list(r) for r in it]
+    wb.close()
+    return pos, rows
+
+
+def _validate(spec, pos, rows, issue_cap=50):
+    cols = spec["cols"]
+    found = set(pos)
+    missing_headers = [lbl for (lbl, snk, kind) in cols if snk not in found]
+    key_missing = [k for k in spec["key_cols"] if k not in pos]
+    issues, valid, skipped = [], 0, 0
+    kindlbl = {"ts": "วันที่/เวลา", "num": "ตัวเลข", "txt": "ข้อความ"}
+    primary = spec["key_cols"][0]   # row is real only when the primary key (team) has a value
+    def _has_key(row):
+        if primary not in pos:
+            return False
+        v = row[pos[primary][0]] if pos[primary][0] < len(row) else None
+        return v is not None and not (isinstance(v, str) and v.strip() == "")
+    for ri, row in enumerate(rows, start=2):  # row 1 is the header
+        if not _has_key(row):
+            skipped += 1
+            continue
+        valid += 1
+        for snk, (idx, kind) in pos.items():
+            v = row[idx] if idx < len(row) else None
+            if not import_spec.coercible(kind, v) and len(issues) < issue_cap:
+                issues.append({"row": ri, "column": snk, "value": str(v)[:40],
+                               "reason": f"แปลงเป็น{kindlbl[kind]}ไม่ได้"})
+    # build a small preview of the first valid rows (mapped, coerced for display)
+    preview_cols = [snk for (_, snk, _) in cols if snk in pos]
+    preview = []
+    for row in rows:
+        if len(preview) >= 8:
+            break
+        if not _has_key(row):
+            continue
+        preview.append([("" if (row[pos[c][0]] if pos[c][0] < len(row) else None) is None else str(row[pos[c][0]])[:30]) for c in preview_cols])
+    ok = (not key_missing) and valid > 0
+    return {"ok": ok, "total_rows": len(rows), "valid_rows": valid, "skipped_rows": skipped,
+            "missing_headers": missing_headers, "key_missing": key_missing,
+            "issue_count": sum(1 for _ in issues), "issues": issues,
+            "preview_cols": preview_cols, "preview": preview}
+
+
+@app.post("/api/import")
+async def import_data(dataset: str = Form(...), commit: bool = Form(False),
+                      mode: str = Form("append"), file: UploadFile = File(...)):
+    """Validate an uploaded workbook (always), and insert it when commit=true.
+    mode: append = add rows · replace = empty the table first. The dataset's source_month
+    is derived on the server so the monthly views line up with the bulk loader."""
+    spec = _spec(dataset)
+    if mode not in ("append", "replace"):
+        raise HTTPException(400, "mode ต้องเป็น append หรือ replace")
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(400, "ไม่พบไฟล์")
+    pos, rows = _read_upload(spec, raw)
+    report = _validate(spec, pos, rows)
+    report.update(dataset=dataset, mode=mode, committed=False, inserted=0)
+    if not commit:
+        return report
+    if not report["ok"]:
+        report["error"] = "ข้อมูลไม่ผ่านการตรวจ จึงไม่นำเข้า"
+        return report
+
+    cols = spec["cols"]
+    snake = [c[1] for c in cols]
+    has_sm = spec["source_month"] is not None
+    coldefs = ", ".join(f"{c[1]} {import_spec.SQLTYPE[c[2]]}" for c in cols) + (", source_month text" if has_sm else "")
+    insert_cols = snake + (["source_month"] if has_sm else [])
+    sm_idx = pos.get(spec["source_month"]) if has_sm else None
+    primary = spec["key_cols"][0]
+    pk = pos.get(primary)
+
+    def _has_key(row):
+        if not pk:
+            return False
+        v = row[pk[0]] if pk[0] < len(row) else None
+        return v is not None and not (isinstance(v, str) and v.strip() == "")
+
+    inserted = 0
+    with _lock, _connect() as conn, conn.cursor() as cur:
+        cur.execute(f"CREATE TABLE IF NOT EXISTS {spec['table']} ({coldefs})")
+        # add source_month column on a pre-existing table that may lack it (defensive)
+        if has_sm:
+            cur.execute(f"ALTER TABLE {spec['table']} ADD COLUMN IF NOT EXISTS source_month text")
+        if mode == "replace":
+            cur.execute(f"TRUNCATE {spec['table']}")
+        with cur.copy(f"COPY {spec['table']} ({', '.join(insert_cols)}) FROM STDIN") as cp:
+            for row in rows:
+                if not _has_key(row):
+                    continue
+                out = []
+                for c in cols:
+                    if c[1] in pos:
+                        idx, kind = pos[c[1]]
+                        out.append(import_spec.coerce(kind, row[idx] if idx < len(row) else None))
+                    else:
+                        out.append(None)
+                if has_sm:
+                    sm = None
+                    if sm_idx is not None:
+                        dt = import_spec.coerce("ts", row[sm_idx[0]] if sm_idx[0] < len(row) else None)
+                        sm = dt.strftime("%Y-%m") if dt else None
+                    out.append(sm)
+                cp.write_row(out)
+                inserted += 1
+        for ix, col in spec["indexes"]:
+            cur.execute(f"CREATE INDEX IF NOT EXISTS {ix} ON {spec['table']} ({col})")
+        conn.commit()
+    _cache["built_at"] = 0.0   # force the dup-view cache to rebuild on next request
+    report.update(committed=True, inserted=inserted)
+    return report
 
 
 @app.get("/api/diag")
