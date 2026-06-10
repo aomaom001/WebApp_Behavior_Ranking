@@ -9,23 +9,33 @@
 
 ```
 WebApp_Behavior_Ranking/
-├── index.html              # โครงหน้า (markup อย่างเดียว)
-├── css/
-│   └── styles.css          # สไตล์ทั้งหมด
-├── js/
-│   └── app.js              # logic: โหลด data → render ตาราง/กราฟ/ฟิลเตอร์
-├── data/
-│   └── data.json           # ข้อมูลสรุป (โหลดผ่าน fetch ตอนรันไทม์)
-├── scripts/
-│   ├── build_data.py       # data pipeline: Excel (.xlsx) → data/data.json
-│   └── requirements.txt    # dependency ของ pipeline (openpyxl)
-├── server.js               # dev server เล็กๆ ไม่มี dependency
-├── package.json            # npm scripts
+├── frontend/               # ⬅ เว็บทั้งหมด (static, self-contained)
+│   ├── index.html          #    โครงหน้า (markup อย่างเดียว)
+│   ├── css/styles.css      #    สไตล์ทั้งหมด
+│   ├── js/app.js           #    logic: โหลด data → render ตาราง/กราฟ/ฟิลเตอร์
+│   ├── data/
+│   │   ├── data.json       #    ข้อมูลสรุป (static fallback เมื่อไม่มี API)
+│   │   └── detail/*.json   #    per-WO detail รายเดือน (drill-down)
+│   ├── nginx.conf          #    config nginx + reverse proxy /api → backend
+│   ├── Dockerfile          #    image เว็บ (nginx) — build context = frontend/
+│   ├── server.js           #    dev server เล็กๆ ไม่มี dependency
+│   ├── package.json        #    npm scripts
+│   └── .nojekyll           #    บอก GitHub Pages ไม่ต้องประมวลผลด้วย Jekyll
+├── backend/                # ⬅ API (FastAPI + PostgreSQL)
+│   ├── main.py             #    endpoints: /api/data /api/detail /api/import ฯลฯ
+│   ├── requirements.txt
+│   └── Dockerfile          #    image API — build context = repo root (ใช้ scripts/ ร่วม)
+├── scripts/                # ⬅ data pipeline + logic ที่ใช้ร่วมกันสองฝั่ง
+│   ├── agg_core.py         #    aggregation กลาง (backend และ pipeline ใช้ตัวเดียวกัน)
+│   ├── import_spec.py      #    นิยาม dataset สำหรับ import
+│   ├── build_data.py       #    Excel (.xlsx) → frontend/data/data.json
+│   ├── load_pg.py          #    Excel (.xlsx) → PostgreSQL
+│   └── requirements.txt    #    dependency ของ pipeline (openpyxl)
+├── docker-compose.yml      # stack เต็ม: db + api + dashboard + pgadmin
 ├── .github/workflows/
-│   └── deploy.yml          # auto-deploy ขึ้น GitHub Pages เมื่อ push main
+│   └── deploy.yml          # auto-deploy frontend/ ขึ้น GitHub Pages เมื่อ push main
 ├── .gitignore
-├── .editorconfig
-└── .nojekyll               # บอก GitHub Pages ไม่ต้องประมวลผลด้วย Jekyll
+└── .editorconfig
 ```
 
 ## รันบนเครื่อง (Local)
@@ -35,12 +45,13 @@ WebApp_Behavior_Ranking/
 ต้องมี [Node.js](https://nodejs.org) 18 ขึ้นไป จากนั้น:
 
 ```bash
+cd frontend
 npm run dev
 ```
 
 แล้วเปิด <http://localhost:5273>
 
-> ไม่อยากใช้ Node ก็ได้ — ใช้ static server อะไรก็ได้ เช่น `python -m http.server 5273` หรือส่วนขยาย "Live Server" ใน VS Code
+> ไม่อยากใช้ Node ก็ได้ — ใช้ static server อะไรก็ได้ เช่น `python -m http.server 5273` (รันในโฟลเดอร์ `frontend/`) หรือส่วนขยาย "Live Server" ใน VS Code
 
 ## Deploy (GitHub Pages)
 
@@ -75,7 +86,7 @@ push ขึ้น branch `main` แล้ว GitHub Actions (`.github/workflows/
 
 ## อัปเดตข้อมูล (Data Pipeline)
 
-ข้อมูลใน `data/data.json` สร้างจากไฟล์ Excel ต้นฉบับ (`MATELINE TICKET CLOSED_*.xlsx`) ด้วยสคริปต์
+ข้อมูลใน `frontend/data/data.json` สร้างจากไฟล์ Excel ต้นฉบับ (`MATELINE TICKET CLOSED_*.xlsx`) ด้วยสคริปต์
 `scripts/build_data.py` ไฟล์ Excel ตั้งใจไม่เก็บใน repo (ดู `.gitignore`) เพราะใหญ่ — เก็บไว้นอก repo
 
 **เมื่อมีข้อมูลเดือนใหม่:**
@@ -84,15 +95,15 @@ push ขึ้น branch `main` แล้ว GitHub Actions (`.github/workflows/
 pip install -r scripts/requirements.txt          # ครั้งแรกครั้งเดียว
 
 # เอาไฟล์ .xlsx เดือนใหม่ไปไว้ในโฟลเดอร์เดียวกับเดือนอื่นๆ แล้ว:
-python scripts/build_data.py --src "path/to/excel/folder" --out data/data.json
+python scripts/build_data.py --src "path/to/excel/folder" --out frontend/data/data.json
 ```
 
-จากนั้น commit เฉพาะ `data/data.json` ที่อัปเดต
+จากนั้น commit เฉพาะ `frontend/data/data.json` ที่อัปเดต
 
 **ตรวจสอบความถูกต้อง** (เทียบกับ data.json ปัจจุบัน โดยไม่เขียนทับ):
 
 ```bash
-python scripts/build_data.py --src "path/to/excel/folder" --validate data/data.json
+python scripts/build_data.py --src "path/to/excel/folder" --validate frontend/data/data.json
 ```
 
 ### นิยามที่ใช้คำนวณ (ใน `build_data.py`)

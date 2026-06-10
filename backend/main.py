@@ -29,7 +29,9 @@ from fastapi.responses import JSONResponse, StreamingResponse
 import psycopg
 from psycopg.rows import dict_row
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts"))
+# scripts/ (shared with the Excel pipeline) sits next to backend/ in the repo root;
+# in the Docker image it is copied to /app/scripts.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"))
 sys.path.insert(0, "/app/scripts")
 import agg_core  # noqa: E402
 import import_spec  # noqa: E402
@@ -620,7 +622,53 @@ def pdtdetail(team: str, panel: int, months: str = "", weeks: str = ""):
                     ml = {"total_points": rnd(tp), "point_days": pdays,
                           "point_per_day": rnd(tp / pdays) if pdays else None}
 
-        return {"meta": meta, "panel": panel, "daily_wl": daily_wl, "daily_ml": daily_ml, "worktypes": worktypes, "ml": ml}
+            # ---- what the team actually did in the filtered period (mateline: travel time + work log) ----
+            travel_sql = "extract(epoch from (arrived - departed))/60.0"
+            onsite_sql = "extract(epoch from (completed - arrived))/60.0"
+            travel_ok = "departed IS NOT NULL AND arrived IS NOT NULL AND arrived >= departed AND extract(epoch from (arrived - departed)) < 86400"
+            onsite_ok = "arrived IS NOT NULL AND completed >= arrived AND extract(epoch from (completed - arrived)) < 604800"
+            mp2 = {"t": team, "ms": sel}
+            wk_clause = ""
+            if wknums and yrs:
+                mp2["wks"] = wknums
+                mp2["yrs"] = yrs
+                wk_clause = " AND extract(week from completed)=ANY(%(wks)s) AND extract(isoyear from completed)=ANY(%(yrs)s)"
+            base_where = "team=%(t)s AND completed IS NOT NULL AND to_char(completed,'YYYY-MM')=ANY(%(ms)s)" + wk_clause
+
+            cur.execute(f"""SELECT count(*) wo, count(DISTINCT date(completed)) worked_days, sum(point) points,
+                  avg({travel_sql}) FILTER (WHERE {travel_ok}) avg_travel,
+                  avg({onsite_sql}) FILTER (WHERE {onsite_ok}) avg_onsite
+                FROM mateline_ticket_closed WHERE {base_where}""", mp2)
+            s = cur.fetchone() or {}
+            work = {"wo": s.get("wo") or 0, "worked_days": s.get("worked_days") or 0, "work_days": meta["days"],
+                    "points": rnd(s.get("points")), "avg_travel_min": rnd(s.get("avg_travel"), 1),
+                    "avg_onsite_min": rnd(s.get("avg_onsite"), 1)}
+
+            cur.execute(f"""SELECT coalesce(nullif(work_type,''),'—') work_type, count(*) n, sum(point) pts,
+                  avg({travel_sql}) FILTER (WHERE {travel_ok}) travel
+                FROM mateline_ticket_closed WHERE {base_where} GROUP BY 1 ORDER BY count(*) DESC""", mp2)
+            worktypes2 = [{"work_type": r["work_type"], "n": r["n"], "points": rnd(r["pts"]), "travel": rnd(r["travel"], 1)}
+                          for r in cur.fetchall()]
+
+            cur.execute(f"""SELECT completed, departed, arrived, work_type, severity, point, status,
+                  province, site_id, root_cause, complete_solution
+                FROM mateline_ticket_closed WHERE {base_where} ORDER BY completed DESC LIMIT 300""", mp2)
+            worklog = []
+            for r in cur.fetchall():
+                dep, arr, comp = r["departed"], r["arrived"], r["completed"]
+                travel = round((arr - dep).total_seconds() / 60) if (dep and arr and arr >= dep and (arr - dep).total_seconds() < 86400) else None
+                onsite = round((comp - arr).total_seconds() / 60) if (arr and comp and comp >= arr and (comp - arr).total_seconds() < 604800) else None
+                worklog.append({
+                    "date": comp.strftime("%Y-%m-%d") if comp else None,
+                    "departed": dep.strftime("%H:%M") if dep else None, "arrived": arr.strftime("%H:%M") if arr else None,
+                    "completed": comp.strftime("%H:%M") if comp else None, "travel_min": travel, "onsite_min": onsite,
+                    "work_type": r["work_type"] or "—", "severity": r["severity"], "point": rnd(r["point"]),
+                    "status": r["status"], "province": r["province"], "site_id": r["site_id"],
+                    "detail": (r["complete_solution"] or r["root_cause"] or "")})
+            work["capped"] = len(worklog) >= 300
+
+        return {"meta": meta, "panel": panel, "daily_wl": daily_wl, "daily_ml": daily_ml, "worktypes": worktypes, "ml": ml,
+                "work": work, "worktypes2": worktypes2, "worklog": worklog}
     except Exception as e:
         raise HTTPException(503, f"pdtdetail failed: {e}")
 

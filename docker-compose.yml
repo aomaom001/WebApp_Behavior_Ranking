@@ -27,8 +27,8 @@ services:
 
   api:
     build:
-      context: .
-      dockerfile: api/Dockerfile
+      context: .                       # root context so the image can COPY the shared scripts/
+      dockerfile: backend/Dockerfile
     image: ww-tt-api:latest
     container_name: ww-tt-api
     environment:
@@ -51,7 +51,7 @@ services:
     restart: unless-stopped
 
   dashboard:
-    build: .
+    build: ./frontend
     image: ww-tt-dashboard:latest
     container_name: ww-tt-dashboard
     depends_on:

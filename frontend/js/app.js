@@ -115,6 +115,13 @@ Object.assign(I18N.th, {
   pdtd_r_span: "ช่วงเวลาทำงานเฉลี่ย {span} ชม./วัน (Arrived แรก → Completed สุด) จาก {days} วัน",
   pdtd_r_ppd: "Point/Day เฉลี่ย {v} สูงกว่ามาตรฐาน 13 อยู่ {gap} จาก {pts} point ใน {days} วัน",
   pdtd_r_topwork: "งาน \"{w}\" คิดเป็น {share} ของ point ทั้งหมด",
+  pdtd_summary: "สรุปช่วงที่เลือก", pdtd_s_worked: "ทำงานจริง", pdtd_s_wo: "ใบงานทั้งหมด",
+  pdtd_s_travel: "เวลาเดินทางเฉลี่ย", pdtd_s_onsite: "เวลาหน้างานเฉลี่ย", pdtd_s_points: "Point รวม",
+  pdtd_worktypes2: "ทำงานอะไรบ้าง (แยกตามประเภทงาน)", pdtd_worklog: "บันทึกการทำงาน รายใบงาน",
+  pdtd_th_sev: "ระดับ", pdtd_th_depart: "ออกเดินทาง", pdtd_th_arrive: "ถึงหน้างาน", pdtd_th_travel: "เดินทาง",
+  pdtd_th_done: "ปิดงาน", pdtd_th_onsite: "หน้างาน", pdtd_th_detail: "รายละเอียดงาน", pdtd_th_travelavg: "เดินทางเฉลี่ย",
+  pdtd_unit_day: "วัน", pdtd_nowork: "ไม่มีใบงานในช่วงเวลาที่เลือก", pdtd_capped: "(แสดง {n} ใบล่าสุด)", pdtd_min: "นาที",
+  dur_hr: "ชม.", dur_min: "น.",
 });
 Object.assign(I18N.en, {
   drill_hint: "Click to list records", drill_title: "Drill-down records", drill_loading: "Loading detail…",
@@ -145,6 +152,13 @@ Object.assign(I18N.en, {
   pdtd_r_span: "Working span averages {span} hrs/day (first arrived → last completed) over {days} days",
   pdtd_r_ppd: "Average Point/Day {v} is {gap} above the standard of 13, from {pts} points over {days} days",
   pdtd_r_topwork: "Work type \"{w}\" accounts for {share} of all points",
+  pdtd_summary: "Selected-period summary", pdtd_s_worked: "Days worked", pdtd_s_wo: "Work orders",
+  pdtd_s_travel: "Avg travel", pdtd_s_onsite: "Avg on-site", pdtd_s_points: "Total points",
+  pdtd_worktypes2: "What they did (by work type)", pdtd_worklog: "Work log (per WO)",
+  pdtd_th_sev: "Severity", pdtd_th_depart: "Departed", pdtd_th_arrive: "Arrived", pdtd_th_travel: "Travel",
+  pdtd_th_done: "Completed", pdtd_th_onsite: "On-site", pdtd_th_detail: "Work detail", pdtd_th_travelavg: "Avg travel",
+  pdtd_unit_day: "days", pdtd_nowork: "No work orders in the selected period", pdtd_capped: "(latest {n} shown)", pdtd_min: "min",
+  dur_hr: "h", dur_min: "m",
 });
 Object.assign(I18N.th, {
   imp_nav: "นำเข้าข้อมูล", imp_nav_d: "Template · ตรวจสอบ · Import",
@@ -898,7 +912,7 @@ function boot(DATA) {
     $("pdtDrillTitle").textContent = nameOf(team);
     $("pdtDrillMeta").textContent = "";
     $("pdtDrillBody").innerHTML = `<div class="hintbox">${icon("i-info")}${t("drill_loading")}</div>`;
-    if (d.showModal) { if (!d.open) d.showModal(); } else d.setAttribute("open", "");
+    if (d.showModal) { if (d.open) d.close(); d.showModal(); } else d.setAttribute("open", "");
     const req = ++pdtDrillReq;
     const p = new URLSearchParams({ team, panel });
     if (S.pdt.months.length) p.set("months", S.pdt.months.join(","));
@@ -976,17 +990,51 @@ function boot(DATA) {
       }
     }
 
-    // 3) work-type contribution (panel 4)
+    // 3) selected-period summary strip (what the team actually did) + travel time
+    const W = dt.work || {};
+    // human-readable duration: 47 -> "47 น." · 223 -> "3 ชม. 43 น."
+    const dur = (v) => {
+      if (v == null) return "—";
+      const mm = Math.round(v), h = Math.floor(mm / 60), m = mm % 60;
+      if (h <= 0) return `${m}<small> ${t("dur_min")}</small>`;
+      return `${h}<small> ${t("dur_hr")}</small>${m ? ` ${m}<small> ${t("dur_min")}</small>` : ""}`;
+    };
+    const sumTile = (lbl, val, sub) => `<div class="pdtd-sum"><div class="pdtd-sumv">${val}</div><div class="pdtd-suml">${esc(lbl)}${sub ? ` <small>${esc(sub)}</small>` : ""}</div></div>`;
+    const summary = `<section class="pdtd-block"><h3 class="pdtd-h">${t("pdtd_summary")}</h3><div class="pdtd-sumrow">` +
+      sumTile(t("pdtd_s_worked"), `${W.worked_days || 0} <small>/ ${W.work_days || 0}</small>`, t("pdtd_unit_day")) +
+      sumTile(t("pdtd_s_wo"), (W.wo || 0).toLocaleString()) +
+      sumTile(t("pdtd_s_travel"), dur(W.avg_travel_min)) +
+      sumTile(t("pdtd_s_onsite"), dur(W.avg_onsite_min)) +
+      sumTile(t("pdtd_s_points"), W.points == null ? "—" : W.points.toLocaleString()) +
+      `</div></section>`;
+
+    // 4) what they did, by work type (all panels)
     let wt = "";
-    if (panel === 4 && dt.worktypes.length) {
-      const tot = dt.worktypes.reduce((s, w) => s + (w.points || 0), 0) || 1;
-      wt = `<section class="pdtd-block"><h3 class="pdtd-h">${t("pdtd_worktypes")}</h3>` + pdtDTable([
+    if (dt.worktypes2 && dt.worktypes2.length) {
+      const totN = dt.worktypes2.reduce((s, w) => s + (w.n || 0), 0) || 1;
+      wt = `<section class="pdtd-block"><h3 class="pdtd-h">${t("pdtd_worktypes2")}</h3>` + pdtDTable([
         { label: t("pdt_th_work"), cls: "l", get: (r) => `<span lang="en">${esc(r.work_type)}</span>` },
         { label: t("pdtd_th_wo"), cls: "tnum", get: (r) => r.n },
-        { label: t("pdtd_th_pts"), cls: "tnum", get: (r) => `<b>${num(r.points)}</b>` },
-        { label: t("pdtd_th_share"), cls: "", get: (r) => { const pct = Math.round(((r.points || 0) / tot) * 100); return `<div class="pdtd-share"><div class="pdtd-sharebar" style="width:${pct}%"></div><span>${pct}%</span></div>`; } },
-      ], dt.worktypes) + `</section>`;
+        { label: t("pdtd_th_pts"), cls: "tnum", get: (r) => num(r.points) },
+        { label: t("pdtd_th_travelavg"), cls: "tnum", get: (r) => dur(r.travel) },
+        { label: t("pdtd_th_share"), cls: "", get: (r) => { const pct = Math.round((r.n / totN) * 100); return `<div class="pdtd-share"><div class="pdtd-sharebar" style="width:${pct}%"></div><span>${pct}%</span></div>`; } },
+      ], dt.worktypes2) + `</section>`;
     }
+
+    // 5) work log — every WO in the period with travel time + what was done
+    const wl = dt.worklog || [];
+    const worklog = `<section class="pdtd-block"><h3 class="pdtd-h">${t("pdtd_worklog")}${W.capped ? ` <small class="muted-dash">${t("pdtd_capped", { n: 300 })}</small>` : ""}</h3>` + pdtDTable([
+      { label: t("pdtd_th_date"), cls: "l tnum", get: (r) => r.date || "—" },
+      { label: t("pdt_th_work"), cls: "l", get: (r) => `<span lang="en">${esc(r.work_type)}</span>` },
+      { label: t("pdtd_th_sev"), cls: "", get: (r) => esc(r.severity || "—") },
+      { label: t("pdtd_th_depart"), cls: "tnum", get: (r) => r.departed || "—" },
+      { label: t("pdtd_th_arrive"), cls: "tnum", get: (r) => r.arrived || "—" },
+      { label: t("pdtd_th_travel"), cls: "tnum", get: (r) => r.travel_min == null ? "—" : `<b>${dur(r.travel_min)}</b>` },
+      { label: t("pdtd_th_done"), cls: "tnum", get: (r) => r.completed || "—" },
+      { label: t("pdtd_th_onsite"), cls: "tnum", get: (r) => dur(r.onsite_min) },
+      { label: t("pdtd_th_pts"), cls: "tnum", get: (r) => num(r.point) },
+      { label: t("pdtd_th_detail"), cls: "l", get: (r) => `<span class="pdtd-wd" title="${esc(r.detail || "")}">${esc((r.detail || "").slice(0, 60)) || "—"}</span>` },
+    ], wl, t("pdtd_nowork")) + `</section>`;
 
     // 4) daily evidence
     let ev;
@@ -1020,11 +1068,12 @@ function boot(DATA) {
     ], dt.daily_ml, t("pdtd_noml"));
 
     const cond = `<div class="pdtd-cond"><span class="pdtd-badge ${panel === 4 ? "over" : "bad"}">${icon("i-alert")}${t("pdtd_flag")}</span><span class="pdtd-cond-t">${esc(t(titleKey))}</span></div>`;
-    const reasonsBlock = reasons.length ? `<section class="pdtd-block"><h3 class="pdtd-h">${t("pdtd_reasons")}</h3><ul class="pdtd-reasons">${reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></section>` : "";
+    const reasonsHtml = reasons.length ? `<ul class="pdtd-reasons">${reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>` : "";
     $("pdtDrillBody").innerHTML =
-      `<section class="pdtd-block pdtd-verdict">${cond}${gauges}</section>` +
-      reasonsBlock + wt +
-      `<section class="pdtd-block"><h3 class="pdtd-h">${t("pdtd_evidence")}</h3>${ev}</section>`;
+      `<section class="pdtd-block pdtd-verdict">${cond}${gauges}${reasonsHtml}</section>` +
+      summary + wt +
+      `<section class="pdtd-block"><h3 class="pdtd-h">${t("pdtd_evidence")}</h3>${ev}</section>` +
+      worklog;
   }
   /* ---------- Import data tab ---------- */
   const impTable = (ds) => (impSpec && impSpec[ds] ? impSpec[ds].table : ds);

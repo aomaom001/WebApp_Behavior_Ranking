@@ -11,11 +11,11 @@ PostgreSQL (ของคุณ, query ผ่าน pgAdmin)
    └─────────┘         └──────────────┘
 ```
 
-- **api** (`api/`): FastAPI + psycopg อ่านตารางใน Postgres (ตารางเดียวกับที่ดูใน pgAdmin) แล้วคำนวณ → `/api/data`, `/api/detail/<month>` · cache ผลไว้ (`CACHE_TTL`)
-- **dashboard**: nginx เสิร์ฟหน้าเว็บ + proxy `/api` ไป api · ถ้า API ล่ม เว็บ fallback ไปไฟล์ static อัตโนมัติ
+- **api** (`backend/`): FastAPI + psycopg อ่านตารางใน Postgres (ตารางเดียวกับที่ดูใน pgAdmin) แล้วคำนวณ → `/api/data`, `/api/detail/<month>` · cache ผลไว้ (`CACHE_TTL`)
+- **dashboard** (`frontend/`): nginx เสิร์ฟหน้าเว็บ + proxy `/api` ไป api · ถ้า API ล่ม เว็บ fallback ไปไฟล์ static อัตโนมัติ
 - ฐานข้อมูลเป็น **ของคุณเอง** (ไม่ได้สร้างใน stack) — api แค่เชื่อมต่อผ่าน env
 
-ไฟล์: [`Dockerfile`](Dockerfile) · [`nginx.conf`](nginx.conf) · [`api/`](api/) · [`docker-compose.yml`](docker-compose.yml) · [`.env.example`](.env.example)
+ไฟล์: [`frontend/Dockerfile`](frontend/Dockerfile) · [`frontend/nginx.conf`](frontend/nginx.conf) · [`backend/`](backend/) · [`docker-compose.yml`](docker-compose.yml) · [`.env.example`](.env.example)
 
 ---
 
@@ -61,5 +61,5 @@ docker compose down
 
 - **ตัวเลขตรงกับของเดิม 100%** — api ใช้ `scripts/agg_core.py` ตัวเดียวกับ pipeline Excel ที่ validate แล้ว (8 เมตริกตรง 100%)
 - **pgAdmin**: ถ้าอยากมีในชุดเดียวกัน เปิด service `pgadmin` ที่คอมเมนต์ไว้ใน `docker-compose.yml` (ค่าเริ่มต้นคุณ query ผ่าน pgAdmin เดิมได้เลย)
-- **ยังมีโหมด static**: ไฟล์ `data/*.json` + pipeline `build_data.py` ยังใช้ได้ (เช่น deploy ขึ้น GitHub Pages โดยไม่มี API) — เว็บจะลอง `/api` ก่อน ถ้าไม่มีค่อย fallback ไฟล์ static
+- **ยังมีโหมด static**: ไฟล์ `frontend/data/*.json` + pipeline `build_data.py` ยังใช้ได้ (เช่น deploy ขึ้น GitHub Pages โดยไม่มี API) — เว็บจะลอง `/api` ก่อน ถ้าไม่มีค่อย fallback ไฟล์ static
 - ไฟล์ Excel, backup, `.env` ไม่ถูกใส่ลง image

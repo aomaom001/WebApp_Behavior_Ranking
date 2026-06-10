@@ -625,6 +625,18 @@ td.month-col.is-rankcol, th.month-col.is-rankcol { background: color-mix(in okla
 .pdtd-sharebar { height: 7px; border-radius: 999px; background: var(--accent); min-width: 2px; flex: none;
   max-width: 130px; }
 .pdtd-share span { font-size: var(--t-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+/* verdict reasons sit inside the verdict band */
+.pdtd-verdict .pdtd-reasons { margin-top: 15px; }
+/* selected-period summary tiles */
+.pdtd-sumrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(122px, 1fr)); gap: 10px; }
+.pdtd-sum { padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface-2); }
+.pdtd-sumv { font-size: var(--t-2xl); font-weight: 800; letter-spacing: -.02em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.pdtd-sumv small { font-size: var(--t-base); font-weight: 600; color: var(--text-muted); }
+.pdtd-suml { font-size: var(--t-2xs); color: var(--text-muted); margin-top: 6px; }
+.pdtd-suml small { color: var(--text-faint); }
+/* work-log table: keep rows on one line so the wide table scrolls cleanly */
+#pdtDrillBody td { white-space: nowrap; }
+.pdtd-wd { display: inline-block; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; color: var(--text-muted); }
 
 /* ============================================================ Import data tab */
 .btn-primary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); font-weight: 600; }
@@ -851,7 +863,10 @@ td.month-col.is-rankcol, th.month-col.is-rankcol { background: color-mix(in okla
   border: none; padding: 0; border-radius: var(--r-lg);
   background: var(--surface); color: var(--text);
   box-shadow: var(--shadow-lg); max-width: 700px; width: calc(100% - 32px);
+  max-height: 92vh;
 }
+.dialog:modal { margin: auto; }                 /* center in the viewport (spec default, made explicit) */
+.dialog.dialog-wide { max-width: 1040px; }       /* beats .dialog by specificity regardless of source order */
 .dialog::backdrop { background: rgba(8, 13, 26, .55); backdrop-filter: blur(2px); }
 .dialog[open] { animation: dialog-in .2s var(--ease); }
 @keyframes dialog-in { from { opacity: 0; transform: translateY(8px); } }

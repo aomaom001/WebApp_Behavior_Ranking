@@ -29,11 +29,11 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      # The site is plain static files at the repo root — upload as-is.
+      # The site is plain static files in frontend/ — upload that folder as-is.
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: frontend
 
       - name: Deploy
         id: deployment

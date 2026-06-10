@@ -1,5 +1,6 @@
 # Team Behavior Ranking Dashboard — static site served by nginx.
-# Build context = this folder (WebApp_Behavior_Ranking/).
+# Build context = this folder (frontend/).
+#   docker build -t ww-tt-dashboard frontend
 FROM nginx:1.27-alpine
 
 # site config: gzip for the large JSON, sane caching, utf-8

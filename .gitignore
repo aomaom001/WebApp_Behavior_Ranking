@@ -15,8 +15,8 @@ venv/
 *.xls
 *.csv
 
-# Pipeline backups (note: data/detail/*.json IS tracked — needed for drill-down on Pages)
-data/data.backup-*.json
+# Pipeline backups (note: frontend/data/detail/*.json IS tracked — needed for drill-down on Pages)
+frontend/data/data.backup-*.json
 
 # OS / editor cruft
 .DS_Store

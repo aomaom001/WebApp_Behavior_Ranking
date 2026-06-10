@@ -22,7 +22,7 @@ MATELINE_COLS = [
     ("WO Creator", "wo_creator", "txt"), ("Complete Solution", "complete_solution", "txt"),
     ("Severity", "severity", "txt"), ("Work Type", "work_type", "txt"),
     ("Root Cause", "root_cause", "txt"), ("SLA", "sla", "txt"), ("Site ID", "site_id", "txt"),
-    ("Created Time", "created_time", "ts"), ("Arrived", "arrived", "ts"),
+    ("Created Time", "created_time", "ts"), ("Departed", "departed", "ts"), ("Arrived", "arrived", "ts"),
     ("Completed", "completed", "ts"), ("Closed", "closed", "ts"), ("Point", "point", "num"),
 ]
 

@@ -1,0 +1,14 @@
+# Build context for the dashboard image (frontend/Dockerfile, context = frontend/).
+# Only index.html + css/ + js/ + data/ + nginx.conf are COPYed; this guards
+# COPY data/ from pulling in backups and keeps the dev-server files out.
+.dockerignore
+Dockerfile
+server.js
+package.json
+package-lock.json
+node_modules
+.nojekyll
+# never ship source exports or pipeline backups
+**/*.xlsx
+**/*.xls
+data/data.backup-*.json

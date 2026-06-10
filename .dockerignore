@@ -1,11 +1,10 @@
-# keep the image small and clean: only index.html + css/ + js/ + data/ are COPYed,
-# but this also guards COPY data/ from pulling in backups, and speeds up the build context.
+# Build context for the API image (backend/Dockerfile, context = repo root).
+# It only COPYs backend/* and scripts/agg_core.py + scripts/import_spec.py —
+# everything else just bloats the context, so exclude it.
 .git
 .github
 node_modules
-server.js
-package.json
-package-lock.json
+frontend
 .editorconfig
 .gitignore
 .impeccable
@@ -14,9 +13,6 @@ package-lock.json
 docker-compose.yml
 .dockerignore
 **/__pycache__
-# note: nginx.conf and scripts/agg_core.py are NOT ignored — the Dockerfiles COPY them
-# (the web image only COPYs index.html/css/js/data, so scripts/ won't bloat it)
 # never ship source exports or pipeline backups
 **/*.xlsx
 **/*.xls
-data/data.backup-*.json

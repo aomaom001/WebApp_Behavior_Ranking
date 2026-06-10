@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-build_data.py — generate data/data.json (+ data/detail/*.json) from the MATELINE
-"TICKET CLOSED" Excel exports.
+build_data.py — generate frontend/data/data.json (+ frontend/data/detail/*.json) from
+the MATELINE "TICKET CLOSED" Excel exports.
 
 The aggregation itself lives in agg_core.py (shared with the PostgreSQL-backed API),
 so the numbers are identical whatever the source. This file only reads the Excel sheets
 and writes the JSON the static dashboard loads.
 
 Usage:
-    python scripts/build_data.py --src "C:/path/to/excel/folder" --out data/data.json
-    python scripts/build_data.py --src .. --validate data/data.json   # dry-run + compare
+    python scripts/build_data.py --src "C:/path/to/excel/folder" --out frontend/data/data.json
+    python scripts/build_data.py --src .. --validate frontend/data/data.json   # dry-run + compare
 
 Requires: openpyxl  (pip install openpyxl)
 
